@@ -23,9 +23,12 @@ import { IGetLinkedinJobsProxyParam } from './IGetLinkedinJobsProxyParam';
 export interface IGetLinkedinJobsParams {
     title: string;
     location: string;
-    companyName: string[];
-    companyId: string[];
+    companyName?: string[];
+    companyId?: string[];
     publishedAt: string;
     rows: number;
-    proxy: IGetLinkedinJobsProxyParam;
+    proxy?: IGetLinkedinJobsProxyParam;
+    contractType?: string;
+    experienceLevel?: string;
+    workType?: string;
 }
