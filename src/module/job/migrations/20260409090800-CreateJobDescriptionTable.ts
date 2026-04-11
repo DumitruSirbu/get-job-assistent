@@ -15,8 +15,9 @@ export class CreateJobDescriptionTable20260409090800 implements MigrationInterfa
                     },
                     {
                         name: 'job_external_id',
-                        type: 'varchar',
+                        type: 'bigint',
                         isNullable: false,
+                        isUnique: true,
                     },
                     {
                         name: 'title',

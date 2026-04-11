@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './BaseRepository';
 import { Sector } from '../entity/Sector';
+import { ISector } from '../interface';
+import { normalizeStringValue } from '../utils/normalizeStringValue';
 
 @Injectable()
 export class SectorRepository extends BaseRepository<Sector> {
@@ -19,6 +21,21 @@ export class SectorRepository extends BaseRepository<Sector> {
 
     async findAllAndMap(): Promise<Map<string, number>> {
         const sectors = await this.findAll();
+        console.log('findAllAndMap sectors result', JSON.stringify(sectors, null, 2));
+        console.log(
+            'findAllAndMap sectors result length',
+            sectors.map((sector) => [sector.sectorName, sector.sectorId]),
+        );
         return new Map(sectors.map((sector) => [sector.sectorName, sector.sectorId]));
+    }
+
+    async insertNewSectors(items: ISector[]): Promise<void> {
+        if (!items.length) {
+            return;
+        }
+
+        const valuesToInsert = items.map((item) => ({ sectorName: normalizeStringValue(item.sectorName) }));
+
+        await this.insertManyIgnoreConflicts(valuesToInsert);
     }
 }

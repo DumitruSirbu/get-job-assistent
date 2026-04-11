@@ -11,10 +11,28 @@ import { Location } from './entity/Location';
 import { Speciality } from './entity/Speciality';
 import { JobDescriptionService } from './service/JobDescriptionService';
 import { JobDescriptionController } from './controller/JobDescriptionController';
+import { ApplyTypeRepository } from './repository/ApplyTypeRepository';
+import { ContractTypeRepository } from './repository/ContractTypeRepository';
+import { ExperienceLevelRepository } from './repository/ExperienceLevelRepository';
+import { SpecialityRepository } from './repository/SpecialityRepository';
+import { SectorRepository } from './repository/SectorRepository';
+import { LocationRepository } from './repository/LocationRepository';
+import { JobDescriptionRepository } from './repository/JobDescriptionRepository';
+import { CompanyRepository } from './repository/CompanyRepository';
 
 @Module({
     imports: [TypeOrmModule.forFeature([ApplyType, ContractType, ExperienceLevel, Speciality, Sector, Location, JobDescription, Company]), ApifyModule],
     controllers: [JobDescriptionController],
-    providers: [JobDescriptionService],
+    providers: [
+        JobDescriptionService,
+        ApplyTypeRepository,
+        ContractTypeRepository,
+        ExperienceLevelRepository,
+        SpecialityRepository,
+        SectorRepository,
+        LocationRepository,
+        JobDescriptionRepository,
+        CompanyRepository,
+    ],
 })
 export class JobModule {}

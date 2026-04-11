@@ -25,8 +25,9 @@ export class CreateCompanyTable20260409090700 implements MigrationInterface {
                     },
                     {
                         name: 'company_external_id',
-                        type: 'varchar',
+                        type: 'integer',
                         isNullable: false,
+                        isUnique: true,
                     },
                 ],
             }),

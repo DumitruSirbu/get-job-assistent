@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ExperienceLevel } from '../entity/ExperienceLevel';
 import { Repository } from 'typeorm';
 import { BaseRepository } from './BaseRepository';
+import { IExperienceLevel } from '../interface';
+import { normalizeStringValue } from '../utils';
 
 @Injectable()
 export class ExperienceLevelRepository extends BaseRepository<ExperienceLevel> {
@@ -20,5 +22,15 @@ export class ExperienceLevelRepository extends BaseRepository<ExperienceLevel> {
     async findAllAndMap(): Promise<Map<string, number>> {
         const experienceLevels = await this.findAll();
         return new Map(experienceLevels.map((experienceLevel) => [experienceLevel.experienceLevelName, experienceLevel.experienceLevelId]));
+    }
+
+    async insertNewExperienceLevels(items: IExperienceLevel[]): Promise<void> {
+        if (!items.length) {
+            return;
+        }
+
+        const valuesToInsert = items.map((item) => ({ experienceLevelName: normalizeStringValue(item.experienceLevelName) }));
+
+        await this.insertManyIgnoreConflicts(valuesToInsert);
     }
 }

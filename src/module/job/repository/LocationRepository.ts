@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './BaseRepository';
 import { Location } from '../entity/Location';
+import { ILocation } from '../interface';
+import { normalizeStringValue } from '../utils';
 
 @Injectable()
 export class LocationRepository extends BaseRepository<Location> {
@@ -19,5 +21,20 @@ export class LocationRepository extends BaseRepository<Location> {
 
     async findAll(): Promise<Location[]> {
         return this.locationRepository.find();
+    }
+
+    async findAllAndMap(): Promise<Map<string, number>> {
+        const locations = await this.findAll();
+        return new Map(locations.map((location) => [location.countryName, location.locationId]));
+    }
+
+    async insertNewLocations(items: ILocation[]): Promise<void> {
+        if (!items.length) {
+            return;
+        }
+
+        const valuesToInsert = items.map((item) => ({ countryName: normalizeStringValue(item.countryName) }));
+
+        await this.insertManyIgnoreConflicts(valuesToInsert);
     }
 }

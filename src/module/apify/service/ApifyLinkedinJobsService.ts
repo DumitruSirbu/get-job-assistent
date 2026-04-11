@@ -1,14 +1,15 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ActorRun, ApifyClient } from 'apify-client';
 import type { DatasetClientListItemOptions } from 'apify-client';
-import { IGetLinkedinJobsParams } from '../interface/IGetLinkedinJobsParams';
 import { ApifyActorsEnum } from '../enum';
+import { IGetLinkedinJobsParams } from '../interface/IGetLinkedinJobsParams';
+import { IJobDescriptionResponse } from '../interface/IJobDescriptionResponse';
 
 @Injectable()
 export class ApifyLinkedinJobsService {
     constructor(@Inject('APIFY_CLIENT') private readonly apifyClient: ApifyClient) {}
 
-    async fetchJobs(params: IGetLinkedinJobsParams) {
+    async fetchJobs(params: IGetLinkedinJobsParams): Promise<IJobDescriptionResponse[]> {
         const run = await this.runActor(ApifyActorsEnum.LINKEDIN_JOBS_SCRAPER, params);
         return this.getDatasetItems(run.defaultDatasetId);
     }
@@ -22,12 +23,13 @@ export class ApifyLinkedinJobsService {
         }
     }
 
-    private async getDatasetItems(datasetId: string): Promise<Record<string, unknown>[]> {
+    private async getDatasetItems(datasetId: string): Promise<IJobDescriptionResponse[]> {
         try {
             const listParams: DatasetClientListItemOptions = {
                 limit: 1000,
             };
-            const { items } = await this.apifyClient.dataset(datasetId).listItems(listParams);
+            const { items } = await this.apifyClient.dataset<IJobDescriptionResponse>(datasetId).listItems(listParams);
+            console.log('getDatasetItems items', items);
             return items;
         } catch (error) {
             this.handleError(error);

@@ -38,8 +38,8 @@ export class JobDescription {
     @PrimaryGeneratedColumn({ name: 'job_description_id' })
     jobDescriptionId: number;
 
-    @Column({ name: 'job_external_id', type: 'varchar' })
-    jobExternalId: string;
+    @Column({ name: 'job_external_id', type: 'bigint', unique: true })
+    jobExternalId: number;
 
     @Column({ name: 'title', type: 'varchar' })
     title: string;
@@ -48,7 +48,7 @@ export class JobDescription {
     description: string;
 
     @Column({ name: 'published_at', type: 'date' })
-    publishedAt: string;
+    publishedAt: Date | string;
 
     @Column({ name: 'job_url', type: 'varchar' })
     jobUrl: string;

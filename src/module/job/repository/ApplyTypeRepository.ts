@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { ApplyType } from '../entity/ApplyType';
 import { Repository } from 'typeorm';
 import { BaseRepository } from './BaseRepository';
+import { normalizeStringValue } from '../utils';
+import { IApplyType } from '../interface';
 
 @Injectable()
 export class ApplyTypeRepository extends BaseRepository<ApplyType> {
@@ -20,5 +22,15 @@ export class ApplyTypeRepository extends BaseRepository<ApplyType> {
     async findAllAndMap(): Promise<Map<string, number>> {
         const applyTypes = await this.findAll();
         return new Map(applyTypes.map((applyType) => [applyType.applyTypeName, applyType.applyTypeId]));
+    }
+
+    async insertNewApplyTypes(items: IApplyType[]): Promise<void> {
+        if (!items.length) {
+            return;
+        }
+
+        const valuesToInsert = items.map((item) => ({ applyTypeName: normalizeStringValue(item.applyTypeName) }));
+
+        await this.insertManyIgnoreConflicts(valuesToInsert);
     }
 }
