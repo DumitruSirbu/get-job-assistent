@@ -1,0 +1,120 @@
+---
+description: TypeScript code style, formatting, NestJS patterns, and conventions
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# TypeScript & Code Style
+
+## Formatting (Prettier)
+
+- **Indent:** 4 spaces for `.ts`, `.js`, `.tsx`, `.json` files
+- **Quotes:** single quotes for TS/JS/JSON
+- **Print width:** 160 characters
+- **Trailing commas:** always (`trailingComma: 'all'`)
+- **Semicolons:** always
+- **Arrow parens:** always (`(x) => ...`, not `x => ...`)
+
+## TypeScript Config
+
+- **Target:** ES2023, module: `nodenext`
+- **Strict modes enabled:** `strictNullChecks`, `noImplicitAny`, `strictBindCallApply`
+- **Decorators:** `experimentalDecorators` + `emitDecoratorMetadata` (required for NestJS DI)
+
+## ESLint Rules
+
+- `@typescript-eslint/no-explicit-any`: **off** (any is allowed)
+- `@typescript-eslint/no-floating-promises`: **warn**
+- `@typescript-eslint/no-unsafe-argument`: **warn**
+- `import/no-extraneous-dependencies`: **error**
+- Prettier integration enforced via `eslint-plugin-prettier`
+
+## Naming Conventions
+
+| Kind | Convention | Example |
+|---|---|---|
+| Files — classes | PascalCase | `JobDescriptionService.ts` |
+| Files — interfaces | `I` prefix + PascalCase | `IJobDescription.ts` |
+| Files — types | PascalCase + `Type` suffix | `GeneralJobPropertiesMapingsType.ts` |
+| Files — enums | PascalCase + `Enum` suffix | `ApifyActorsEnum.ts` |
+| Files — constants | camelCase | `linkedinJobsConsts.ts` |
+| Files — utils | camelCase | `normalizeStringValue.ts` |
+| Classes | PascalCase | `JobDescriptionService` |
+| Interfaces | `I` prefix | `IJobDescription`, `ICompany` |
+| Type aliases | PascalCase + descriptive | `GeneralJobPropertiesMapingsType` |
+| Constants | UPPER_SNAKE_CASE | `LINKEDIN_JOBS_QUEUE` |
+| Entity properties | camelCase | `jobExternalId` |
+| DB columns | snake_case | `job_external_id` |
+
+## NestJS Patterns
+
+### Dependency Injection
+
+```typescript
+@Injectable()
+export class MyService {
+    constructor(
+        private readonly someRepository: SomeRepository,
+        private readonly otherService: OtherService,
+        @InjectQueue(QUEUE_NAME) private readonly queue: Queue,
+    ) {}
+}
+```
+
+- Always use `private readonly` for injected dependencies
+- Custom injection tokens: `@Inject('TOKEN_NAME')` for factory providers
+- BullMQ: `@InjectQueue(QUEUE_NAME)` with queue name from const
+
+### Module Registration
+
+```typescript
+@Module({
+    imports: [
+        TypeOrmModule.forFeature([Entity1, Entity2, ...]),
+        BullModule.registerQueue({ name: QUEUE_NAME }),
+        OtherModule,
+    ],
+    controllers: [MyController],
+    providers: [MyService, MyRepository, MyProcessor],
+})
+export class MyModule {}
+```
+
+### Controllers
+
+- Minimal: trigger processing via services, no DTOs or validation pipes currently
+- Routes: `@Controller('resource-name')` with kebab-case paths
+- Methods: `@Get('action-name')` — action-oriented, not RESTful CRUD
+
+### Services
+
+- Use NestJS `Logger` (not `console.log`): `private readonly logger = new Logger(MyService.name)`
+- `Promise.all` for parallel independent I/O
+- Errors: log + rethrow in integration services, propagation in domain services
+
+### Queue Processors
+
+```typescript
+@Processor(QUEUE_NAME)
+export class MyProcessor extends WorkerHost {
+    private readonly logger = new Logger(MyProcessor.name);
+    constructor(private readonly service: MyService) { super(); }
+    async process(job: Job<PayloadType>): Promise<void> { ... }
+
+    @OnWorkerEvent('completed')
+    onCompleted(job: Job) { this.logger.log(`Done: ${job.id}`); }
+
+    @OnWorkerEvent('failed')
+    onFailed(job: Job, error: Error) { this.logger.error(`Failed: ${job.id}`, error.message); }
+}
+```
+
+### Barrel Exports
+
+Each subfolder (`entity/`, `interface/`, `const/`, `utils/`, `controller/`, `service/`, `enum/`) has an `index.ts` that re-exports all public members. Keep it updated when adding new files. Exception: `repository/` has no barrel — import each directly.
+
+## Error Handling
+
+- Apify integration: `try/catch` → log with context → rethrow original error
+- Domain services: let errors propagate naturally
+- No global exception filter currently — errors reach NestJS default handler

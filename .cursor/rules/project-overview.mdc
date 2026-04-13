@@ -1,0 +1,73 @@
+---
+description: Project architecture, tech stack, module layout, and infrastructure overview
+alwaysApply: true
+---
+
+# Project Overview — get-job-assistent
+
+A NestJS backend that scrapes LinkedIn job listings via Apify, normalizes and stores them in PostgreSQL, and scores them against candidate profiles.
+
+## Tech Stack
+
+- **Runtime:** Node 22, TypeScript (ES2023, `nodenext` modules)
+- **Framework:** NestJS 11 (`@nestjs/common`, `core`, `platform-express`)
+- **Database:** PostgreSQL 16 via TypeORM (`synchronize: false`, migrations only)
+- **Queue:** BullMQ + Redis 7 (`@nestjs/bullmq`)
+- **External API:** Apify Client (LinkedIn Jobs Scraper actor)
+- **Infra:** Docker Compose (postgres:16-alpine, redis:7-alpine, app)
+
+## Project Structure
+
+```
+src/
+├── main.ts                  # NestFactory bootstrap, REQUEST_TIMEOUT_MS, PORT
+├── AppModule.ts             # Root: ConfigModule (global), TypeORM, BullMQ, imports feature modules
+├── app.controller.ts        # GET / health
+├── app.service.ts
+├── config/
+│   ├── ormconfig.ts          # Postgres config from POSTGRES_URL env
+│   ├── typeormDataSource.ts  # DataSource for CLI migrations
+│   └── bullmqConfig.ts      # Redis connection from REDIS_HOST/PORT
+└── module/
+    ├── apify/                # External API integration module
+    │   ├── ApifyModule.ts    # APIFY_CLIENT factory + ApifyLinkedinJobsService
+    │   ├── enum/             # ApifyActorsEnum, ContractTypeEnum, ExperienceLevelEnum, WorkTypeEnum, PublishedAtEnum
+    │   ├── interface/        # IGetLinkedinJobsParams, IJobDescriptionResponse, etc.
+    │   └── service/          # ApifyLinkedinJobsService (run actor → read dataset)
+    └── job/                  # Core domain module
+        ├── JobModule.ts      # TypeORM entities, BullMQ queue, controller, services, repositories
+        ├── controller/       # JobDescriptionController (GET endpoints)
+        ├── service/          # JobDescriptionService (ETL pipeline, queue fan-out)
+        ├── entity/           # 11 TypeORM entities (see database-conventions rule)
+        ├── repository/       # BaseRepository + 11 concrete repos
+        ├── queue/            # LinkedinJobsProcessor (BullMQ worker)
+        ├── interface/        # Domain interfaces (IJobDescription, ICompany, etc.)
+        ├── const/            # LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME
+        ├── utils/            # normalizeStringValue
+        └── migrations/       # 11 ordered migration files (3 per new table on average)
+```
+
+## Module Architecture
+
+- **AppModule** — global config, wires TypeORM + BullMQ roots, imports feature modules
+- **ApifyModule** — `APIFY_CLIENT` injection token (factory from ConfigService), exports `ApifyLinkedinJobsService`
+- **JobModule** — imports `ApifyModule`, registers all entities via `TypeOrmModule.forFeature`, BullMQ queue `linkedin-jobs`
+
+## Key Patterns
+
+- **Feature-based organization** under `src/module/<feature>/`
+- **Constructor injection** everywhere; `@Inject('APIFY_CLIENT')` for factory token; `@InjectQueue` for BullMQ
+- **Repository pattern** — abstract `BaseRepository<T>` with `findAll`, `create`, `insertManyIgnoreConflicts`
+- **No DTOs / Guards / Pipes / Interceptors / Filters** — minimal HTTP layer, processing triggered via GET endpoints
+- **Barrel exports** — each subfolder has `index.ts` re-exporting its members
+- **Interfaces** prefixed with `I` (e.g., `IJobDescription`, `ICompany`)
+- **No Swagger/OpenAPI** decorators
+
+## Scripts
+
+- `npm run start:dev` — dev with watch
+- `npm run migration:generate -- src/module/job/migrations/<name>` — auto-generate
+- `npm run migration:run` — apply pending
+- `npm run migration:revert` — rollback last
+- `npm run lint` — ESLint with `--fix`
+- `npm run format` — Prettier

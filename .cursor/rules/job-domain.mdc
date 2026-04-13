@@ -1,0 +1,99 @@
+---
+description: Job module domain logic — ETL pipeline, scoring, Apify integration, queue processing
+globs: "**/module/job/**,**/module/apify/**"
+alwaysApply: false
+---
+
+# Job Domain Logic
+
+## Data Flow Overview
+
+```
+HTTP trigger (GET /job-description/process-new-jobs)
+  → JobDescriptionService.dispatchProcessNewJobs()
+    → BullMQ: one job per location (queue: 'linkedin-jobs', job: 'process-location')
+      → LinkedinJobsProcessor.process()
+        → JobDescriptionService.processJobsByLocation(location)
+          → ApifyLinkedinJobsService.fetchJobs() (run LinkedIn Jobs Scraper actor)
+          → processGetJobsResults() — ETL pipeline:
+              1. Extract unique dimension values from raw results
+              2. Bulk upsert missing lookup rows (ON CONFLICT DO NOTHING)
+              3. Load all dimension maps (Map<normalizedName, id>)
+              4. Map raw items → IJobDescription (resolve FK ids)
+              5. Bulk insert job descriptions (dedupe by jobExternalId)
+```
+
+## Apify Integration
+
+- **Actor:** `ApifyActorsEnum.LINKEDIN_JOBS_SCRAPER`
+- **Input:** `IGetLinkedinJobsParams` — `location` (required), optional `contractType`, `experienceLevel`, `workType`, `publishedAt`, `rows`, `proxy`
+- **Output:** `IJobDescriptionResponse[]` — flat string-heavy records from LinkedIn (ids as strings, raw field names)
+- **APIFY_CLIENT** is a factory-injected `ApifyClient` instance from `ApifyModule`
+
+## ETL Pipeline Details
+
+### Dimension Upsert Pattern
+
+For each lookup dimension (sector, speciality, contractType, experienceLevel, applyType, location, company):
+1. Extract unique values from raw results via `Set`
+2. Normalize strings: `normalizeStringValue()` = `trim().toLowerCase()`
+3. Call `repository.insertNew<Dimension>(values)` → `insertManyIgnoreConflicts` (ON CONFLICT DO NOTHING)
+4. After all inserts, reload all maps via `repository.findAllAndMap()` → `Map<normalizedName, id>`
+
+### FK Resolution
+
+`assignIdIfExists<K extends keyof IJobDescription>(item, map, rawValue, field)` — looks up `normalizedStringValue(rawValue)` in the map, sets `item[field]` if found.
+
+### Deduplication
+
+- In-memory: `Map<jobExternalId, IJobDescription>` before insert
+- In DB: `ON CONFLICT DO NOTHING` via `insertManyIgnoreConflicts`
+- Skip items missing required FKs (company, applyType, contractType, experienceLevel, speciality, sector)
+
+## Queue Configuration
+
+- **Queue name:** `LINKEDIN_JOBS_QUEUE = 'linkedin-jobs'`
+- **Job name:** `LINKEDIN_JOBS_JOB_NAME = 'process-location'`
+- **Job options:** `{ attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true, removeOnFail: false }`
+- **Payload:** `ILinkedinJobsQueuePayload = { location: string }`
+- **Locations** are hardcoded in `JobDescriptionService` as a private array
+
+## Scoring Domain (New — partially built)
+
+### CandidateProfile
+
+Represents a job seeker. Key fields:
+- `fullName`, `headline`, `email`, `phone`, `linkedinUrl`
+- `cvRawText` (text) — raw CV for LLM processing
+- `skillsJson` (jsonb) — structured skill data
+- `yearsExperience` (integer)
+- `openToRemote` (boolean, default true)
+- `version` (string) — for profile versioning
+- FK to `location` (optional) and `experienceLevel` (optional)
+
+### ScorerModel
+
+Defines which algorithm or LLM scored a match:
+- `scorerType`: `"algorithm"` | `"llm"` (varchar, not a DB enum)
+- `scorerProvider`: `"internal"` | `"openai"` | etc.
+- `scorerModel`: model identifier string
+- Unique constraint: `(scorer_provider, scorer_model)`
+
+### JobMatchScore
+
+Links a job to a candidate via a scorer:
+- FK to `job_description` (CASCADE delete), `candidate_profile` (CASCADE delete), `scorer_model` (RESTRICT)
+- `score` (integer), `reasonsJson` (jsonb), `metadataJson` (jsonb)
+- `version` (string) — score version for recomputation tracking
+- Unique constraint: `(job_description_id, candidate_profile_id, scorer_model_id, version)`
+- No repositories or services built yet for these entities
+
+## Adding New Features — Checklist
+
+When adding a new entity to the job module:
+1. Create entity file in `entity/` following existing column/relation patterns
+2. Add to `entity/index.ts` barrel export
+3. Register in `JobModule`'s `TypeOrmModule.forFeature([...])`
+4. Create migration in `migrations/` with next timestamp
+5. Create repository extending `BaseRepository` if needed
+6. Add repository to `JobModule` providers
