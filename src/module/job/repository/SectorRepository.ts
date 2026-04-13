@@ -21,11 +21,6 @@ export class SectorRepository extends BaseRepository<Sector> {
 
     async findAllAndMap(): Promise<Map<string, number>> {
         const sectors = await this.findAll();
-        console.log('findAllAndMap sectors result', JSON.stringify(sectors, null, 2));
-        console.log(
-            'findAllAndMap sectors result length',
-            sectors.map((sector) => [sector.sectorName, sector.sectorId]),
-        );
         return new Map(sectors.map((sector) => [sector.sectorName, sector.sectorId]));
     }
 

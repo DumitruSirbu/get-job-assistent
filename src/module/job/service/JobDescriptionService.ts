@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { ApplyTypeRepository } from '../repository/ApplyTypeRepository';
 import { ContractTypeRepository } from '../repository/ContractTypeRepository';
 import { ExperienceLevelRepository } from '../repository/ExperienceLevelRepository';
@@ -24,9 +26,15 @@ import {
 import { normalizeStringValue } from '../utils/normalizeStringValue';
 import { IJobDescriptionResponse } from 'src/module/apify/interface/IJobDescriptionResponse';
 import jobsList from '../jobsList.json';
+import { LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME } from '../const';
+import type { ILinkedinJobsQueuePayload } from '../interface/ILinkedinJobsQueuePayload';
 
 @Injectable()
 export class JobDescriptionService {
+    private readonly logger = new Logger(JobDescriptionService.name);
+
+    private readonly locations = ['Moldova', 'Netherlands', 'Denmark', 'France', 'Germany', 'Sweeden', 'Norway', 'Austria', 'Switzerland', 'Luxembourg'];
+
     constructor(
         private readonly applyTypeRepository: ApplyTypeRepository,
         private readonly contractTypeRepository: ContractTypeRepository,
@@ -37,35 +45,33 @@ export class JobDescriptionService {
         private readonly jobDescriptionRepository: JobDescriptionRepository,
         private readonly apifyLinkedinJobsService: ApifyLinkedinJobsService,
         private readonly companyRepository: CompanyRepository,
+        @InjectQueue(LINKEDIN_JOBS_QUEUE) private readonly linkedinJobsQueue: Queue,
     ) {}
 
-    async processNewJobs(): Promise<void> {
-        const locations = [
-            'Moldova',
-            'EMEA',
-            'Netherlands',
-            'Denmark',
-            'France',
-            'Germany',
-            // 'Europe', // took a lot of time to process
-            'Sweeden',
-            'Norway',
-            'Austria',
-            'Switzerland',
-            'Luxembourg',
-        ];
-        // const locations = ['Moldova'];
+    async dispatchProcessNewJobs(): Promise<number> {
+        const jobOptions = {
+            attempts: 3,
+            backoff: { type: 'exponential' as const, delay: 5000 },
+            removeOnComplete: true,
+            removeOnFail: false,
+        };
 
-        for (const location of locations) {
-            await this.processJobsByLocation(location);
-        }
+        const jobs = await Promise.all(
+            this.locations.map(async (location) => {
+                const payload: ILinkedinJobsQueuePayload = { location };
+                return await this.linkedinJobsQueue.add(LINKEDIN_JOBS_JOB_NAME, payload, jobOptions);
+            }),
+        );
+
+        this.logger.log(`Dispatched ${jobs.length} location jobs: ${this.locations.join(', ')}`);
+        return jobs.length;
     }
 
     async processFromFile(): Promise<void> {
         await this.processGetJobsResults(jobsList as IJobDescriptionResponse[]);
     }
 
-    private async processJobsByLocation(location: string): Promise<void> {
+    async processJobsByLocation(location: string): Promise<void> {
         const fetchJobsParams: IGetLinkedinJobsParams = {
             contractType: ContractTypeEnum.FULL_TIME,
             experienceLevel: ExperienceLevelEnum.MID_SENIOR,
@@ -121,7 +127,6 @@ export class JobDescriptionService {
                 !newJobDescription.experienceLevelId ||
                 !newJobDescription.applyTypeId
             ) {
-                console.log('job', job.id, 'is missing some properties', JSON.stringify(newJobDescription, null, 2));
                 continue;
             }
 

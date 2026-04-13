@@ -29,7 +29,6 @@ export class ApifyLinkedinJobsService {
                 limit: 1000,
             };
             const { items } = await this.apifyClient.dataset<IJobDescriptionResponse>(datasetId).listItems(listParams);
-            console.log('getDatasetItems items', items);
             return items;
         } catch (error) {
             this.handleError(error);

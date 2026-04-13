@@ -6,8 +6,9 @@ export class JobDescriptionController {
     constructor(private readonly jobDescriptionService: JobDescriptionService) {}
 
     @Get('process-new-jobs')
-    async processNewJobs(): Promise<void> {
-        await this.jobDescriptionService.processNewJobs();
+    async processNewJobs(): Promise<{ queued: number }> {
+        const queued = await this.jobDescriptionService.dispatchProcessNewJobs();
+        return { queued };
     }
 
     @Get('process-from-file')

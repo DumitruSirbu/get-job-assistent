@@ -1,5 +1,6 @@
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { ApifyModule } from '../apify/ApifyModule';
 import { ApplyType } from './entity/ApplyType';
 import { Company } from './entity/Company';
@@ -19,9 +20,15 @@ import { SectorRepository } from './repository/SectorRepository';
 import { LocationRepository } from './repository/LocationRepository';
 import { JobDescriptionRepository } from './repository/JobDescriptionRepository';
 import { CompanyRepository } from './repository/CompanyRepository';
+import { LinkedinJobsProcessor } from './queue/linkedinJobsProcessor';
+import { LINKEDIN_JOBS_QUEUE } from './const';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([ApplyType, ContractType, ExperienceLevel, Speciality, Sector, Location, JobDescription, Company]), ApifyModule],
+    imports: [
+        TypeOrmModule.forFeature([ApplyType, ContractType, ExperienceLevel, Speciality, Sector, Location, JobDescription, Company]),
+        BullModule.registerQueue({ name: LINKEDIN_JOBS_QUEUE }),
+        ApifyModule,
+    ],
     controllers: [JobDescriptionController],
     providers: [
         JobDescriptionService,
@@ -33,6 +40,7 @@ import { CompanyRepository } from './repository/CompanyRepository';
         LocationRepository,
         JobDescriptionRepository,
         CompanyRepository,
+        LinkedinJobsProcessor,
     ],
 })
 export class JobModule {}
