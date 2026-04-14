@@ -18,6 +18,27 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
         return this.jobDescriptionRepository.findOne({ where: { jobDescriptionId } });
     }
 
+    async findUnscoredByCandidateAndScorer(candidateProfileId: number, scorerModelId: number, version: string): Promise<JobDescription[]> {
+        return this.jobDescriptionRepository
+            .createQueryBuilder('jobDescription')
+            .where(
+                `NOT EXISTS (
+                    SELECT 1
+                    FROM job_match_score jobMatchScore
+                    WHERE jobMatchScore.job_description_id = "jobDescription".job_description_id
+                      AND jobMatchScore.candidate_profile_id = :candidateProfileId
+                      AND jobMatchScore.scorer_model_id = :scorerModelId
+                      AND jobMatchScore.version = :version
+                )`,
+                {
+                    candidateProfileId,
+                    scorerModelId,
+                    version,
+                },
+            )
+            .getMany();
+    }
+
     async insertNewJobDescriptions(items: IJobDescription[]): Promise<void> {
         if (!items.length) {
             return;

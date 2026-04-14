@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from 'src/module/job/repository/BaseRepository';
 import { ScorerModel } from '../entity/ScorerModel';
 import { IScorerModel } from '../interface/IScorerModel';
 
@@ -22,16 +22,12 @@ export class ScorerModelRepository extends BaseRepository<ScorerModel> {
         return this.scorerModelRepository.findOne({ where: { scorerProvider, scorerModel } });
     }
 
-    async findAllAndMap(): Promise<Map<string, number>> {
-        const scorerModels = await this.findAll();
-        return new Map(scorerModels.map((item) => [`${item.scorerProvider}:${item.scorerModel}`, item.scorerModelId]));
-    }
-
-    async insertNewScorerModels(items: IScorerModel[]): Promise<void> {
-        if (!items.length) {
-            return;
+    async findOrCreate(item: IScorerModel): Promise<ScorerModel> {
+        const existing = await this.findByProviderAndModel(item.scorerProvider, item.scorerModel);
+        if (existing) {
+            return existing;
         }
-
-        await this.insertManyIgnoreConflicts(items);
+        const entity = this.scorerModelRepository.create(item);
+        return this.scorerModelRepository.save(entity);
     }
 }

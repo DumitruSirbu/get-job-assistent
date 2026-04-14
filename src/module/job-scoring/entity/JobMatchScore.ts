@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
-import { JobDescription } from './JobDescription';
-import { CandidateProfile } from './CandidateProfile';
+import { JobDescription } from 'src/module/job/entity/JobDescription';
+import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
 import { ScorerModel } from './ScorerModel';
 
 @Entity({ name: 'job_match_score', synchronize: false })
@@ -44,8 +44,6 @@ export class JobMatchScore {
 
     /**
      * Raw output from the scorer for audit and debugging purposes.
-     * For algorithm scorer: intermediate weight calculations per dimension.
-     * For LLM scorer: full raw response payload returned by the model.
      */
     @Column({ name: 'metadata_json', type: 'jsonb', nullable: true })
     metadataJson?: object | null;

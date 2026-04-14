@@ -4,6 +4,6 @@ export interface IJobMatchScore {
     scorerModelId: number;
     version: string;
     score: number;
-    reasonsJson?: object;
-    metadataJson?: object;
+    reasonsJson?: object | null;
+    metadataJson?: object | null;
 }

@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from 'src/module/job/repository/BaseRepository';
 import { CandidateProfile } from '../entity/CandidateProfile';
 import { ICandidateProfile } from '../interface/ICandidateProfile';
 
@@ -19,7 +19,12 @@ export class CandidateProfileRepository extends BaseRepository<CandidateProfile>
     }
 
     async findLatest(): Promise<CandidateProfile | null> {
-        return this.candidateProfileRepository.findOne({ order: { createdAt: 'DESC' } });
+        const [latest] = await this.candidateProfileRepository.find({
+            order: { createdAt: 'DESC' },
+            take: 1,
+        });
+
+        return latest ?? null;
     }
 
     async upsert(item: ICandidateProfile): Promise<CandidateProfile> {

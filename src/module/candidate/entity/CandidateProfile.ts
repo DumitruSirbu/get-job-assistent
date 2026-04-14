@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
-import { ExperienceLevel } from './ExperienceLevel';
-import { Location } from './Location';
+import { ExperienceLevel } from 'src/module/job/entity/ExperienceLevel';
+import { Location } from 'src/module/job/entity/Location';
 
 @Entity({ name: 'candidate_profile', synchronize: false })
 export class CandidateProfile {

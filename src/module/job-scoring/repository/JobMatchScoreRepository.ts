@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from 'src/module/job/repository/BaseRepository';
 import { JobMatchScore } from '../entity/JobMatchScore';
 import { IJobMatchScore } from '../interface/IJobMatchScore';
 
