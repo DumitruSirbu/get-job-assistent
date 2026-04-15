@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { IPaginated, paginate } from 'src/common/interface/IPaginated';
 import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
 import { CandidateProfileRepository } from 'src/module/candidate/repository/CandidateProfileRepository';
 import { JobDescription } from 'src/module/job/entity/JobDescription';
 import { JobDescriptionRepository } from 'src/module/job/repository/JobDescriptionRepository';
 import { OllamaJobScoringService } from 'src/module/ollama/service/OllamaJobScoringService';
+import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
 import { JobMatchScore } from '../entity/JobMatchScore';
 import { ScorerModel } from '../entity/ScorerModel';
 import { ScorerProviderEnum, ScorerTypeEnum } from '../enum';
@@ -27,6 +29,10 @@ export class JobScoringService {
         private readonly scorerModelRepository: ScorerModelRepository,
         @InjectQueue(JOB_SCORING_QUEUE) private readonly jobScoringQueue: Queue<IJobScoringQueuePayload>,
     ) {}
+
+    async listForCandidate(candidateId: number, dto: ListScoresRequestDto): Promise<IPaginated<JobMatchScore>> {
+        return this.jobMatchScoreRepository.listForCandidate(candidateId, dto);
+    }
 
     async scoreAllJobs(): Promise<IScoreAllJobsResponse> {
         const candidateProfile: CandidateProfile | null = await this.candidateProfileRepository.findLatest();
@@ -118,5 +124,11 @@ export class JobScoringService {
 
             throw error;
         }
+    }
+
+    async clearQueue(): Promise<{ cleared: boolean }> {
+        await this.jobScoringQueue.obliterate({ force: true });
+        this.logger.log('Cleared all jobs from job-scoring queue');
+        return { cleared: true };
     }
 }

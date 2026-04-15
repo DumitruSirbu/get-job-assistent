@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
+import { PaginationDto } from 'src/common/dto/PaginationDto';
+import { IPaginated, paginate } from 'src/common/interface/IPaginated';
 import { OllamaCvService } from 'src/module/ollama/service/OllamaCvService';
 import { LocationRepository } from 'src/module/job/repository/LocationRepository';
 import { ExperienceLevelRepository } from 'src/module/job/repository/ExperienceLevelRepository';
@@ -17,6 +19,32 @@ export class CandidateProfileService {
         private readonly experienceLevelRepository: ExperienceLevelRepository,
         private readonly locationRepository: LocationRepository,
     ) {}
+
+    async list(dto: PaginationDto): Promise<IPaginated<object>> {
+        const { page, limit } = dto;
+
+        const [candidates, total] = await this.candidateProfileRepository.findPaginatedWithRelations((page - 1) * limit, limit);
+
+        const items = candidates.map((candidate) => ({
+            ...candidate,
+            skillsCount: Array.isArray(candidate.skillsJson) ? (candidate.skillsJson as unknown[]).length : 0,
+        }));
+
+        return paginate(items, total, page, limit);
+    }
+
+    async findById(id: number): Promise<object> {
+        const candidate = await this.candidateProfileRepository.findByIdWithRelations(id);
+
+        if (!candidate) {
+            throw new NotFoundException(`CandidateProfile ${id} not found`);
+        }
+
+        return {
+            ...candidate,
+            skillsJson: Array.isArray(candidate.skillsJson) ? candidate.skillsJson : (candidate.skillsJson ?? []),
+        };
+    }
 
     async processCV(version: string): Promise<CandidateProfile> {
         const cvPath = resolve('src', 'cv', `cv-${version}.txt`);

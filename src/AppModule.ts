@@ -11,6 +11,7 @@ import { postgresConnectionConfig } from './config/ormconfig';
 import { JobModule } from './module/job/JobModule';
 import { CandidateModule } from './module/candidate/CandidateModule';
 import { JobScoringModule } from './module/job-scoring/JobScoringModule';
+import { UserModule } from './module/user/UserModule';
 import { AuthModule } from './module/auth/AuthModule';
 import { JwtAuthGuard } from './module/auth/guard/JwtAuthGuard';
 
@@ -23,6 +24,7 @@ import { JwtAuthGuard } from './module/auth/guard/JwtAuthGuard';
         JobModule,
         CandidateModule,
         JobScoringModule,
+        UserModule,
         AuthModule,
     ],
     controllers: [AppController],

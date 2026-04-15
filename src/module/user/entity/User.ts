@@ -1,12 +1,18 @@
 import { Entity, Column, PrimaryGeneratedColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
 
-@Entity({ name: 'auth_user', synchronize: false })
-export class AuthUser {
-    @PrimaryGeneratedColumn({ name: 'auth_user_id' })
-    authUserId: number;
+@Entity({ name: 'users', synchronize: false })
+export class User {
+    @PrimaryGeneratedColumn({ name: 'user_id' })
+    userId: number;
 
     @Column({ name: 'email', type: 'varchar', unique: true })
     email: string;
+
+    @Column({ name: 'first_name', type: 'varchar' })
+    firstName: string;
+
+    @Column({ name: 'last_name', type: 'varchar' })
+    lastName: string;
 
     @Column({ name: 'password_hash', type: 'varchar' })
     passwordHash: string;

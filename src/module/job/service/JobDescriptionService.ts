@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { IPaginated } from 'src/common/interface/IPaginated';
+import { ListJobFiltersDto } from '../dto/ListJobFiltersDto';
+import { JobDescription } from '../entity/JobDescription';
 import { ApplyTypeRepository } from '../repository/ApplyTypeRepository';
 import { ContractTypeRepository } from '../repository/ContractTypeRepository';
 import { ExperienceLevelRepository } from '../repository/ExperienceLevelRepository';
@@ -47,6 +50,14 @@ export class JobDescriptionService {
         private readonly companyRepository: CompanyRepository,
         @InjectQueue(LINKEDIN_JOBS_QUEUE) private readonly linkedinJobsQueue: Queue,
     ) {}
+
+    async listWithFilters(dto: ListJobFiltersDto): Promise<IPaginated<JobDescription>> {
+        return this.jobDescriptionRepository.listWithFilters(dto);
+    }
+
+    async findById(id: number): Promise<JobDescription> {
+        return this.jobDescriptionRepository.findByIdWithRelations(id);
+    }
 
     async dispatchProcessNewJobs(): Promise<number> {
         const jobOptions = {

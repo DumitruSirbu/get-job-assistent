@@ -12,6 +12,13 @@ import { Location } from './entity/Location';
 import { Speciality } from './entity/Speciality';
 import { JobDescriptionService } from './service/JobDescriptionService';
 import { JobDescriptionController } from './controller/JobDescriptionController';
+import { CompanyController } from './controller/CompanyController';
+import { LocationController } from './controller/LocationController';
+import { SectorController } from './controller/SectorController';
+import { SpecialityController } from './controller/SpecialityController';
+import { ExperienceLevelController } from './controller/ExperienceLevelController';
+import { ContractTypeController } from './controller/ContractTypeController';
+import { ApplyTypeController } from './controller/ApplyTypeController';
 import { ApplyTypeRepository } from './repository/ApplyTypeRepository';
 import { ContractTypeRepository } from './repository/ContractTypeRepository';
 import { ExperienceLevelRepository } from './repository/ExperienceLevelRepository';
@@ -29,7 +36,16 @@ import { LINKEDIN_JOBS_QUEUE } from './const';
         BullModule.registerQueue({ name: LINKEDIN_JOBS_QUEUE }),
         ApifyModule,
     ],
-    controllers: [JobDescriptionController],
+    controllers: [
+        JobDescriptionController,
+        CompanyController,
+        LocationController,
+        SectorController,
+        SpecialityController,
+        ExperienceLevelController,
+        ContractTypeController,
+        ApplyTypeController,
+    ],
     providers: [
         JobDescriptionService,
         ApplyTypeRepository,
@@ -42,6 +58,15 @@ import { LINKEDIN_JOBS_QUEUE } from './const';
         CompanyRepository,
         LinkedinJobsProcessor,
     ],
-    exports: [LocationRepository, ExperienceLevelRepository, JobDescriptionRepository],
+    exports: [
+        LocationRepository,
+        ExperienceLevelRepository,
+        JobDescriptionRepository,
+        CompanyRepository,
+        SectorRepository,
+        SpecialityRepository,
+        ContractTypeRepository,
+        ApplyTypeRepository,
+    ],
 })
 export class JobModule {}

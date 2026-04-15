@@ -18,6 +18,22 @@ export class CandidateProfileRepository extends BaseRepository<CandidateProfile>
         return this.candidateProfileRepository.findOne({ where: { candidateProfileId } });
     }
 
+    async findByIdWithRelations(candidateProfileId: number): Promise<CandidateProfile | null> {
+        return this.candidateProfileRepository.findOne({
+            where: { candidateProfileId },
+            relations: ['location', 'experienceLevel'],
+        });
+    }
+
+    async findPaginatedWithRelations(skip: number, take: number): Promise<[CandidateProfile[], number]> {
+        return this.candidateProfileRepository.findAndCount({
+            relations: ['location', 'experienceLevel'],
+            order: { createdAt: 'DESC' },
+            skip,
+            take,
+        });
+    }
+
     async findLatest(): Promise<CandidateProfile | null> {
         const [latest] = await this.candidateProfileRepository.find({
             order: { createdAt: 'DESC' },

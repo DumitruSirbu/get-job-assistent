@@ -23,5 +23,6 @@ import { JOB_SCORING_QUEUE } from './const';
     ],
     controllers: [JobScoringController],
     providers: [JobScoringService, JobMatchScoreRepository, ScorerModelRepository, JobScoringProcessor],
+    exports: [JobMatchScoreRepository],
 })
 export class JobScoringModule {}

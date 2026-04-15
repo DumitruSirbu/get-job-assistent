@@ -1,13 +1,13 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
-export class CreateAuthUserTable20260414120000 implements MigrationInterface {
+export class CreateUserTable20260414120000 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.createTable(
             new Table({
-                name: 'auth_user',
+                name: 'users',
                 columns: [
                     {
-                        name: 'auth_user_id',
+                        name: 'user_id',
                         type: 'integer',
                         isPrimary: true,
                         isGenerated: true,
@@ -18,6 +18,16 @@ export class CreateAuthUserTable20260414120000 implements MigrationInterface {
                         type: 'varchar',
                         isNullable: false,
                         isUnique: true,
+                    },
+                    {
+                        name: 'first_name',
+                        type: 'varchar',
+                        isNullable: false,
+                    },
+                    {
+                        name: 'last_name',
+                        type: 'varchar',
+                        isNullable: false,
                     },
                     {
                         name: 'password_hash',
@@ -50,9 +60,9 @@ export class CreateAuthUserTable20260414120000 implements MigrationInterface {
             true,
         );
 
-        await queryRunner.createIndices('auth_user', [
+        await queryRunner.createIndices('users', [
             new TableIndex({
-                name: 'IDX_auth_user_email_unique',
+                name: 'IDX_users_email_unique',
                 columnNames: ['email'],
                 isUnique: true,
             }),
@@ -60,7 +70,7 @@ export class CreateAuthUserTable20260414120000 implements MigrationInterface {
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.dropIndex('auth_user', 'IDX_auth_user_email_unique');
-        await queryRunner.dropTable('auth_user');
+        await queryRunner.dropIndex('users', 'IDX_users_email_unique');
+        await queryRunner.dropTable('users');
     }
 }

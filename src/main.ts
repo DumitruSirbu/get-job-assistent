@@ -13,6 +13,13 @@ async function bootstrap() {
     server.requestTimeout = requestTimeoutMs;
     server.headersTimeout = requestTimeoutMs + 1000;
 
+    app.enableCors({
+        origin: [process.env.DASHBOARD_URL],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: true,
+    });
+
     await app.listen(process.env.PORT ?? 3000);
 }
 
