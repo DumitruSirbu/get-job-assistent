@@ -1,6 +1,6 @@
 ---
 description: TypeORM entity, migration, and repository conventions for PostgreSQL
-globs: "**/entity/**,**/migrations/**,**/repository/**"
+globs: "**/entity/**,**/migrations/**,**/repository/**,**/dto/**"
 alwaysApply: false
 ---
 
@@ -25,23 +25,23 @@ alwaysApply: false
 
 ### Entity Barrel
 
-Every entity must be re-exported from `entity/index.ts` and registered in `JobModule`'s `TypeOrmModule.forFeature([...])`.
+Every entity must be re-exported from its module's `entity/index.ts` and registered in the owning module's `TypeOrmModule.forFeature([...])`. Entities are **not** cross-registered — each module owns its own entities.
 
 ## Existing Tables
 
-| Table | Entity | PK | Natural Key / Unique |
-|---|---|---|---|
-| `apply_type` | ApplyType | `apply_type_id` | `apply_type_name` (unique) |
-| `contract_type` | ContractType | `contract_type_id` | `contract_type_name` (unique) |
-| `experience_level` | ExperienceLevel | `experience_level_id` | `experience_level_name` (unique) |
-| `speciality` | Speciality | `speciality_id` | `speciality_name` (unique) |
-| `sector` | Sector | `sector_id` | `sector_name` (unique) |
-| `location` | Location | `location_id` | `country_name` (unique) |
-| `company` | Company | `company_id` | `company_external_id` (unique) |
-| `job_description` | JobDescription | `job_description_id` | `job_external_id` (unique bigint) |
-| `candidate_profile` | CandidateProfile | `candidate_profile_id` | — |
-| `scorer_model` | ScorerModel | `scorer_model_id` | composite (`scorer_provider`, `scorer_model`) |
-| `job_match_score` | JobMatchScore | `job_match_score_id` | composite (`job_description_id`, `candidate_profile_id`, `scorer_model_id`, `version`) |
+| Table | Entity | Module | PK | Natural Key / Unique |
+|---|---|---|---|---|
+| `apply_type` | ApplyType | job | `apply_type_id` | `apply_type_name` (unique) |
+| `contract_type` | ContractType | job | `contract_type_id` | `contract_type_name` (unique) |
+| `experience_level` | ExperienceLevel | job | `experience_level_id` | `experience_level_name` (unique) |
+| `speciality` | Speciality | job | `speciality_id` | `speciality_name` (unique) |
+| `sector` | Sector | job | `sector_id` | `sector_name` (unique) |
+| `location` | Location | job | `location_id` | `country_name` (unique) |
+| `company` | Company | job | `company_id` | `company_external_id` (unique) |
+| `job_description` | JobDescription | job | `job_description_id` | `job_external_id` (unique bigint) |
+| `candidate_profile` | CandidateProfile | candidate | `candidate_profile_id` | — |
+| `scorer_model` | ScorerModel | job-scoring | `scorer_model_id` | composite (`scorer_provider`, `scorer_model`) |
+| `job_match_score` | JobMatchScore | job-scoring | `job_match_score_id` | composite (`job_description_id`, `candidate_profile_id`, `scorer_model_id`, `version`) |
 
 ### Lookup Tables
 
@@ -82,4 +82,4 @@ Every new DB table requires **all five** of the following steps — never skip a
 2. **Migration** — create `migrations/<timestamp>-Create<EntityName>Table.ts` with `up()` (table + FKs + indexes) and `down()` (exact reverse order)
 3. **Interface** — create `interface/I<EntityName>.ts` with plain TypeScript fields (no decorators), export from `interface/index.ts`
 4. **Repository** — create `repository/<EntityName>Repository.ts` extending `BaseRepository<Entity>`, add relevant `findBy*` and insert methods
-5. **Module registration** — add entity to `TypeOrmModule.forFeature([...])` and repository to `providers: []` in `JobModule.ts`
+5. **Module registration** — add entity to `TypeOrmModule.forFeature([...])` and repository to `providers: []` in the **owning** module (e.g., `CandidateModule.ts`, `JobScoringModule.ts`, not always `JobModule.ts`)

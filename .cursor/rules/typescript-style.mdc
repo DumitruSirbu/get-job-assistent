@@ -82,9 +82,18 @@ export class MyModule {}
 
 ### Controllers
 
-- Minimal: trigger processing via services, no DTOs or validation pipes currently
 - Routes: `@Controller('resource-name')` with kebab-case paths
-- Methods: `@Get('action-name')` — action-oriented, not RESTful CRUD
+- Methods: `@Get` or `@Post` with action-oriented names (not RESTful CRUD)
+- DTOs used only for endpoints that accept a request body; plain classes with typed fields (no class-validator decorators currently)
+- `@Post` endpoints that return data (not 201) should use `@HttpCode(HttpStatus.OK)`
+- Example with body:
+
+```typescript
+@Post('process-cv')
+async processCV(@Body() body: ProcessCvDto): Promise<CandidateProfile> {
+    return this.service.processCV(body.version);
+}
+```
 
 ### Services
 
@@ -109,12 +118,24 @@ export class MyProcessor extends WorkerHost {
 }
 ```
 
+When the worker may run long-running operations (e.g., Ollama LLM calls), pass worker options to `@Processor` to avoid stall detection false positives:
+
+```typescript
+@Processor(QUEUE_NAME, {
+    lockDuration: 10 * 60 * 1000,  // 10 minutes
+    stalledInterval: 30 * 1000,
+    maxStalledCount: 1,
+    concurrency: 2,
+})
+```
+
 ### Barrel Exports
 
-Each subfolder (`entity/`, `interface/`, `const/`, `utils/`, `controller/`, `service/`, `enum/`) has an `index.ts` that re-exports all public members. Keep it updated when adding new files. Exception: `repository/` has no barrel — import each directly.
+Each subfolder (`entity/`, `interface/`, `const/`, `utils/`, `controller/`, `service/`, `enum/`) has an `index.ts` that re-exports all public members. Keep it updated when adding new files. Exceptions: `repository/` and `dto/` have no barrel — import each directly.
 
 ## Error Handling
 
 - Apify integration: `try/catch` → log with context → rethrow original error
 - Domain services: let errors propagate naturally
+- Duplicate key on insert: catch, inspect `error.message` for `'duplicate key'` or `'unique constraint'`, log warn and return (no rethrow) — used in `JobScoringService`
 - No global exception filter currently — errors reach NestJS default handler

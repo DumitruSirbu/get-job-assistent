@@ -1,12 +1,12 @@
 ---
-description: Job module domain logic — ETL pipeline, scoring, Apify integration, queue processing
-globs: "**/module/job/**,**/module/apify/**"
+description: Domain logic — job ingestion ETL, candidate CV processing, job scoring, Apify and Ollama integration, queue processing
+globs: "**/module/job/**,**/module/apify/**,**/module/candidate/**,**/module/job-scoring/**,**/module/ollama/**"
 alwaysApply: false
 ---
 
-# Job Domain Logic
+# Domain Logic
 
-## Data Flow Overview
+## Job Ingestion Data Flow
 
 ```
 HTTP trigger (GET /job-description/process-new-jobs)
@@ -21,6 +21,37 @@ HTTP trigger (GET /job-description/process-new-jobs)
               3. Load all dimension maps (Map<normalizedName, id>)
               4. Map raw items → IJobDescription (resolve FK ids)
               5. Bulk insert job descriptions (dedupe by jobExternalId)
+```
+
+## Candidate CV Processing Data Flow
+
+```
+HTTP trigger (POST /candidate-profile/process-cv  body: { version: string })
+  → CandidateProfileService.processCV(version)
+    → Read src/cv/cv-{version}.txt from filesystem
+    → OllamaCvService.extractCvProfile(cvText) → IOllamaCvResponse
+    → Resolve locationId and experienceLevelId from DB maps
+    → CandidateProfileRepository.upsert(...) → CandidateProfile
+```
+
+CV files are stored at `src/cv/cv-<version>.txt`. The `version` string is both the filename discriminator and stored on the entity for profile versioning.
+
+## Job Scoring Data Flow
+
+```
+HTTP trigger (POST /job-scoring/score-all)
+  → JobScoringService.scoreAllJobs()
+    → CandidateProfileRepository.findLatest() — must exist or throws
+    → ScorerModelRepository.findOrCreate({ scorerType, scorerProvider, scorerModel })
+    → JobDescriptionRepository.findUnscoredByCandidateAndScorer(...)
+      — subquery: excludes jobs already in job_match_score for this candidate+scorer+version
+    → jobScoringQueue.addBulk(jobs) (queue: 'job-scoring', job: 'score-job')
+      → JobScoringProcessor.process()
+        → JobScoringService.processScoreJobEvent({ jobDescriptionId, candidateProfileId })
+          → fetch job + candidate profile in parallel
+          → ScorerModelRepository.findOrCreate(...)
+          → OllamaJobScoringService.scoreJob(input) → { score, reasons }
+          → JobMatchScoreRepository.create(...) — skips duplicate key errors gracefully
 ```
 
 ## Apify Integration
@@ -52,48 +83,87 @@ For each lookup dimension (sector, speciality, contractType, experienceLevel, ap
 
 ## Queue Configuration
 
+### LinkedIn Jobs Queue
+
 - **Queue name:** `LINKEDIN_JOBS_QUEUE = 'linkedin-jobs'`
 - **Job name:** `LINKEDIN_JOBS_JOB_NAME = 'process-location'`
 - **Job options:** `{ attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true, removeOnFail: false }`
 - **Payload:** `ILinkedinJobsQueuePayload = { location: string }`
 - **Locations** are hardcoded in `JobDescriptionService` as a private array
 
-## Scoring Domain (New — partially built)
+### Job Scoring Queue
+
+- **Queue name:** `JOB_SCORING_QUEUE = 'job-scoring'`
+- **Job name:** `JOB_SCORING_JOB_NAME = 'score-job'`
+- **Payload:** `IJobScoringQueuePayload = { jobDescriptionId: number; candidateProfileId: number }`
+- **Worker options:** `lockDuration: 10 * 60 * 1000` (10 min, needed because Ollama scoring can take minutes), `stalledInterval: 30_000`, `maxStalledCount: 1`, `concurrency: 2`
+- **Dispatched in bulk** via `queue.addBulk()`
+
+## Ollama Integration
+
+### OllamaBaseService (abstract)
+
+- Configured via `ollamaConfig` singleton (`OLLAMA_HOST`, `OLLAMA_MODEL` env vars; defaults: `http://localhost:11434`, `gemma4`)
+- `askForJson<T>(prompt)` — POSTs to `/api/chat` with `stream: false`, extracts JSON from response (handles markdown code fence wrapping)
+- Both concrete services extend `OllamaBaseService` directly and call `super(ollamaConfig.host, ollamaConfig.model)`
+
+### OllamaCvService
+
+- `extractCvProfile(cvText)` → `IOllamaCvResponse`
+- Parses: `fullName`, `headline`, `openToRemote`, `email`, `phone`, `linkedinUrl`, `yearsExperience`, `experienceLevel`, `location`, `skills[]`
+- Skills schema: `{ name: string; level: 'beginner'|'intermediate'|'advanced'; confidence: number }`
+
+### OllamaJobScoringService
+
+- `scoreJob(input: IScoreJobInput)` → `IOllamaJobScoreResponse = { score: number; reasons: IOllamaJobScoreReasons }`
+- `IScoreJobInput`: `{ jobTitle, jobDescription, candidateHeadline, candidateSkills, candidateYearsExperience, candidateExperienceLevel, candidateOpenToRemote, candidateLocation }`
+- `IOllamaJobScoreReasons`: `{ matchedSkills: string[]; missingSkills: string[]; seniorityMatch: boolean; locationMatch: boolean; summary: string }`
+- Scoring algorithm is baked into the prompt (sequential logic with early-stop on location/title mismatch)
+- Exposes `modelName` getter (used by `JobScoringService` to populate `ScorerModel.scorerModel`)
+
+## Candidate Domain
 
 ### CandidateProfile
 
 Represents a job seeker. Key fields:
 - `fullName`, `headline`, `email`, `phone`, `linkedinUrl`
-- `cvRawText` (text) — raw CV for LLM processing
-- `skillsJson` (jsonb) — structured skill data
+- `cvRawText` (text) — raw CV for reference
+- `skillsJson` (jsonb) — structured skill array from Ollama
 - `yearsExperience` (integer)
 - `openToRemote` (boolean, default true)
-- `version` (string) — for profile versioning
-- FK to `location` (optional) and `experienceLevel` (optional)
+- `version` (string) — filename-based versioning
+- FK to `location` (optional, SET NULL) and `experienceLevel` (optional, SET NULL)
+
+`CandidateProfileRepository` key methods:
+- `findLatest()` — most recently created profile (used by scoring service)
+- `upsert(item)` — `repository.create()` + `repository.save()` (TypeORM insert-or-update)
+
+## Scoring Domain
 
 ### ScorerModel
 
-Defines which algorithm or LLM scored a match:
-- `scorerType`: `"algorithm"` | `"llm"` (varchar, not a DB enum)
-- `scorerProvider`: `"internal"` | `"openai"` | etc.
-- `scorerModel`: model identifier string
+Defines which algorithm or LLM was used for scoring:
+- `scorerType`: `"algorithm"` | `"llm"` — use `ScorerTypeEnum`
+- `scorerProvider`: `"internal"` | `"ollama"` | `"openai"` | … — use `ScorerProviderEnum`
+- `scorerModel`: model identifier string (e.g. `"gemma4"`)
 - Unique constraint: `(scorer_provider, scorer_model)`
+- `ScorerModelRepository.findOrCreate(item)` — looks up by provider+model, creates if missing
 
 ### JobMatchScore
 
 Links a job to a candidate via a scorer:
 - FK to `job_description` (CASCADE delete), `candidate_profile` (CASCADE delete), `scorer_model` (RESTRICT)
-- `score` (integer), `reasonsJson` (jsonb), `metadataJson` (jsonb)
-- `version` (string) — score version for recomputation tracking
+- `score` (integer 0–100), `reasonsJson` (jsonb), `metadataJson` (jsonb)
+- `version` (string) — set to `scorerModel.scorerModel` for recomputation tracking
 - Unique constraint: `(job_description_id, candidate_profile_id, scorer_model_id, version)`
-- No repositories or services built yet for these entities
+- Duplicate inserts are caught and logged as warnings (no rethrow)
 
 ## Adding New Features — Checklist
 
-When adding a new entity to the job module:
+When adding a new entity to any module:
 1. Create entity file in `entity/` following existing column/relation patterns
 2. Add to `entity/index.ts` barrel export
-3. Register in `JobModule`'s `TypeOrmModule.forFeature([...])`
+3. Register in the relevant module's `TypeOrmModule.forFeature([...])`
 4. Create migration in `migrations/` with next timestamp
 5. Create repository extending `BaseRepository` if needed
-6. Add repository to `JobModule` providers
+6. Add repository to the module's `providers` (and `exports` if consumed by another module)

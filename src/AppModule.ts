@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ApifyModule } from './module/apify/ApifyModule';
@@ -10,6 +11,8 @@ import { postgresConnectionConfig } from './config/ormconfig';
 import { JobModule } from './module/job/JobModule';
 import { CandidateModule } from './module/candidate/CandidateModule';
 import { JobScoringModule } from './module/job-scoring/JobScoringModule';
+import { AuthModule } from './module/auth/AuthModule';
+import { JwtAuthGuard } from './module/auth/guard/JwtAuthGuard';
 
 @Module({
     imports: [
@@ -20,8 +23,15 @@ import { JobScoringModule } from './module/job-scoring/JobScoringModule';
         JobModule,
         CandidateModule,
         JobScoringModule,
+        AuthModule,
     ],
     controllers: [AppController],
-    providers: [AppService],
+    providers: [
+        AppService,
+        {
+            provide: APP_GUARD,
+            useClass: JwtAuthGuard,
+        },
+    ],
 })
 export class AppModule {}

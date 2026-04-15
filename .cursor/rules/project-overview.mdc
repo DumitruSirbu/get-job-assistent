@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Project Overview — get-job-assistent
 
-A NestJS backend that scrapes LinkedIn job listings via Apify, normalizes and stores them in PostgreSQL, and scores them against candidate profiles.
+A NestJS backend that scrapes LinkedIn job listings via Apify, normalizes and stores them in PostgreSQL, scores them against candidate profiles using a local Ollama LLM, and exposes HTTP endpoints to trigger each pipeline stage.
 
 ## Tech Stack
 
@@ -13,6 +13,7 @@ A NestJS backend that scrapes LinkedIn job listings via Apify, normalizes and st
 - **Framework:** NestJS 11 (`@nestjs/common`, `core`, `platform-express`)
 - **Database:** PostgreSQL 16 via TypeORM (`synchronize: false`, migrations only)
 - **Queue:** BullMQ + Redis 7 (`@nestjs/bullmq`)
+- **LLM:** Ollama (local) — CV extraction and job scoring via `fetch` against `/api/chat`
 - **External API:** Apify Client (LinkedIn Jobs Scraper actor)
 - **Infra:** Docker Compose (postgres:16-alpine, redis:7-alpine, app)
 
@@ -24,49 +25,91 @@ src/
 ├── AppModule.ts             # Root: ConfigModule (global), TypeORM, BullMQ, imports feature modules
 ├── app.controller.ts        # GET / health
 ├── app.service.ts
+├── cv/                      # CV text files: cv-<version>.txt (read by CandidateProfileService)
 ├── config/
 │   ├── ormconfig.ts          # Postgres config from POSTGRES_URL env
 │   ├── typeormDataSource.ts  # DataSource for CLI migrations
-│   └── bullmqConfig.ts      # Redis connection from REDIS_HOST/PORT
+│   ├── bullmqConfig.ts       # Redis connection from REDIS_HOST/PORT
+│   └── ollamaConfig.ts       # Ollama host + model from OLLAMA_HOST/OLLAMA_MODEL env
 └── module/
     ├── apify/                # External API integration module
     │   ├── ApifyModule.ts    # APIFY_CLIENT factory + ApifyLinkedinJobsService
     │   ├── enum/             # ApifyActorsEnum, ContractTypeEnum, ExperienceLevelEnum, WorkTypeEnum, PublishedAtEnum
     │   ├── interface/        # IGetLinkedinJobsParams, IJobDescriptionResponse, etc.
     │   └── service/          # ApifyLinkedinJobsService (run actor → read dataset)
-    └── job/                  # Core domain module
-        ├── JobModule.ts      # TypeORM entities, BullMQ queue, controller, services, repositories
-        ├── controller/       # JobDescriptionController (GET endpoints)
-        ├── service/          # JobDescriptionService (ETL pipeline, queue fan-out)
-        ├── entity/           # 11 TypeORM entities (see database-conventions rule)
-        ├── repository/       # BaseRepository + 11 concrete repos
-        ├── queue/            # LinkedinJobsProcessor (BullMQ worker)
-        ├── interface/        # Domain interfaces (IJobDescription, ICompany, etc.)
-        ├── const/            # LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME
-        ├── utils/            # normalizeStringValue
-        └── migrations/       # 11 ordered migration files (3 per new table on average)
+    ├── job/                  # Core job-ingestion module
+    │   ├── JobModule.ts      # TypeORM entities, BullMQ queue, exports LocationRepo, ExperienceLevelRepo, JobDescriptionRepo
+    │   ├── controller/       # JobDescriptionController (GET endpoints)
+    │   ├── service/          # JobDescriptionService (ETL pipeline, queue fan-out)
+    │   ├── entity/           # 8 TypeORM entities: ApplyType, Company, ContractType, ExperienceLevel, JobDescription, Location, Sector, Speciality
+    │   ├── repository/       # BaseRepository + 8 concrete repos
+    │   ├── queue/            # LinkedinJobsProcessor (BullMQ worker)
+    │   ├── interface/        # Domain interfaces (IJobDescription, ICompany, etc.)
+    │   ├── const/            # LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME
+    │   ├── utils/            # normalizeStringValue
+    │   └── migrations/       # 8 ordered migration files
+    ├── candidate/            # Candidate profile module
+    │   ├── CandidateModule.ts # imports OllamaModule + JobModule (for Location/ExperienceLevel repos)
+    │   ├── controller/       # CandidateProfileController — POST /candidate-profile/process-cv
+    │   ├── dto/              # ProcessCvDto (version: string)
+    │   ├── entity/           # CandidateProfile
+    │   ├── interface/        # ICandidateProfile
+    │   ├── repository/       # CandidateProfileRepository (findLatest, upsert)
+    │   ├── service/          # CandidateProfileService (reads cv file, calls Ollama, resolves FKs)
+    │   └── migrations/       # 1 migration: CreateCandidateProfileTable
+    ├── job-scoring/          # Job-to-candidate scoring module
+    │   ├── JobScoringModule.ts # imports OllamaModule + JobModule + CandidateModule
+    │   ├── controller/       # JobScoringController — POST /job-scoring/score-all
+    │   ├── const/            # JOB_SCORING_QUEUE, JOB_SCORING_JOB_NAME
+    │   ├── entity/           # JobMatchScore, ScorerModel
+    │   ├── enum/             # ScorerProviderEnum, ScorerTypeEnum
+    │   ├── interface/        # IJobMatchScore, IScorerModel, IJobScoringQueuePayload, IScoreAllJobsResponse
+    │   ├── repository/       # JobMatchScoreRepository, ScorerModelRepository (findOrCreate)
+    │   ├── queue/            # JobScoringProcessor (BullMQ worker, lockDuration 10 min, concurrency 2)
+    │   ├── service/          # JobScoringService (dispatches + processes scoring events)
+    │   └── migrations/       # 2 migrations: CreateScorerModelTable, CreateJobMatchScoreTable
+    └── ollama/               # Ollama LLM integration module
+        ├── OllamaModule.ts   # provides + exports OllamaCvService, OllamaJobScoringService
+        ├── interface/        # IOllamaChatResponse, IOllamaCvResponse, IOllamaCvSkill, IOllamaJobScoreResponse, IOllamaJobScoreReasons, IScoreJobInput
+        └── service/
+            ├── OllamaBaseService.ts    # abstract: askForJson<T>(prompt) via fetch /api/chat, JSON extraction
+            ├── OllamaCvService.ts      # extractCvProfile(cvText) → IOllamaCvResponse
+            └── OllamaJobScoringService.ts  # scoreJob(input) → IOllamaJobScoreResponse, exposes modelName
 ```
 
 ## Module Architecture
 
-- **AppModule** — global config, wires TypeORM + BullMQ roots, imports feature modules
+- **AppModule** — global config, wires TypeORM + BullMQ roots, imports ApifyModule, JobModule, CandidateModule, JobScoringModule
 - **ApifyModule** — `APIFY_CLIENT` injection token (factory from ConfigService), exports `ApifyLinkedinJobsService`
-- **JobModule** — imports `ApifyModule`, registers all entities via `TypeOrmModule.forFeature`, BullMQ queue `linkedin-jobs`
+- **JobModule** — imports `ApifyModule`, registers all 8 job entities, exports `LocationRepository`, `ExperienceLevelRepository`, `JobDescriptionRepository`
+- **OllamaModule** — stateless, no imports; provides and exports `OllamaCvService` and `OllamaJobScoringService`
+- **CandidateModule** — imports `OllamaModule` + `JobModule`; exports `CandidateProfileRepository`
+- **JobScoringModule** — imports `OllamaModule` + `JobModule` + `CandidateModule`; owns job-scoring BullMQ queue
 
 ## Key Patterns
 
 - **Feature-based organization** under `src/module/<feature>/`
 - **Constructor injection** everywhere; `@Inject('APIFY_CLIENT')` for factory token; `@InjectQueue` for BullMQ
 - **Repository pattern** — abstract `BaseRepository<T>` with `findAll`, `create`, `insertManyIgnoreConflicts`
-- **No DTOs / Guards / Pipes / Interceptors / Filters** — minimal HTTP layer, processing triggered via GET endpoints
-- **Barrel exports** — each subfolder has `index.ts` re-exporting its members
+- **DTOs** used only where HTTP request body validation is needed (e.g., `ProcessCvDto` in CandidateModule); most endpoints take no body
+- **Barrel exports** — each subfolder has `index.ts` re-exporting its members; exception: `repository/` has no barrel
 - **Interfaces** prefixed with `I` (e.g., `IJobDescription`, `ICompany`)
 - **No Swagger/OpenAPI** decorators
+- **Ollama config** read at module instantiation from `ollamaConfig` singleton (env-driven, no ConfigService injection)
+
+## HTTP Endpoints
+
+| Method | Path | Module | Description |
+|---|---|---|---|
+| GET | `/` | App | Health check |
+| GET | `/job-description/process-new-jobs` | Job | Trigger LinkedIn scrape + ETL |
+| POST | `/candidate-profile/process-cv` | Candidate | Parse CV file via Ollama, upsert CandidateProfile |
+| POST | `/job-scoring/score-all` | JobScoring | Dispatch BullMQ scoring jobs for all unscored jobs |
 
 ## Scripts
 
 - `npm run start:dev` — dev with watch
-- `npm run migration:generate -- src/module/job/migrations/<name>` — auto-generate
+- `npm run migration:generate -- src/module/<feature>/migrations/<name>` — auto-generate
 - `npm run migration:run` — apply pending
 - `npm run migration:revert` — rollback last
 - `npm run lint` — ESLint with `--fix`
