@@ -23,10 +23,10 @@ export class CandidateApplicationService {
         return { items };
     }
 
-    async createApplication(candidateProfileId: number, dto: CreateCandidateApplicationDto): Promise<ICandidateApplication> {
+    async createApplication(candidateProfileId: number, requestParams: CreateCandidateApplicationDto): Promise<ICandidateApplication> {
         await this.assertCandidateExists(candidateProfileId);
 
-        const statusName = dto.statusName ?? DEFAULT_STATUS_NAME;
+        const statusName = requestParams.statusName ?? DEFAULT_STATUS_NAME;
         const status = await this.applicationStatusRepository.findByName(statusName);
         if (!status) {
             throw new BadRequestException(`Unknown status: ${statusName}`);
@@ -34,10 +34,10 @@ export class CandidateApplicationService {
 
         const entity = new CandidateApplication();
         entity.candidateProfileId = candidateProfileId;
-        entity.jobDescriptionId = dto.jobDescriptionId;
+        entity.jobDescriptionId = requestParams.jobDescriptionId;
         entity.applicationStatusId = status.applicationStatusId;
-        if (dto.appliedAt) {
-            entity.appliedAt = new Date(dto.appliedAt);
+        if (requestParams.appliedAt) {
+            entity.appliedAt = new Date(requestParams.appliedAt);
         }
 
         try {
@@ -53,7 +53,7 @@ export class CandidateApplicationService {
         return created!;
     }
 
-    async findApplication(candidateProfileId: number, applicationId: string): Promise<ICandidateApplication> {
+    async findApplication(candidateProfileId: number, applicationId: number): Promise<ICandidateApplication> {
         await this.assertCandidateExists(candidateProfileId);
         const application = await this.candidateApplicationRepository.findByIdAndCandidateId(applicationId, candidateProfileId);
         if (!application) {
@@ -62,7 +62,7 @@ export class CandidateApplicationService {
         return application;
     }
 
-    async updateApplication(candidateProfileId: number, applicationId: string, dto: UpdateCandidateApplicationDto): Promise<ICandidateApplication> {
+    async updateApplication(candidateProfileId: number, applicationId: number, requestParams: UpdateCandidateApplicationDto): Promise<ICandidateApplication> {
         await this.assertCandidateExists(candidateProfileId);
 
         const entity = await this.candidateApplicationRepository.findRawByIdAndCandidateId(applicationId, candidateProfileId);
@@ -70,16 +70,16 @@ export class CandidateApplicationService {
             throw new NotFoundException(`Application ${applicationId} not found`);
         }
 
-        if (dto.statusName !== undefined) {
-            const status = await this.applicationStatusRepository.findByName(dto.statusName);
+        if (requestParams.statusName !== undefined) {
+            const status = await this.applicationStatusRepository.findByName(requestParams.statusName);
             if (!status) {
-                throw new BadRequestException(`Unknown status: ${dto.statusName}`);
+                throw new BadRequestException(`Unknown status: ${requestParams.statusName}`);
             }
             entity.applicationStatusId = status.applicationStatusId;
         }
 
-        if (dto.appliedAt !== undefined) {
-            entity.appliedAt = new Date(dto.appliedAt);
+        if (requestParams.appliedAt !== undefined) {
+            entity.appliedAt = new Date(requestParams.appliedAt);
         }
 
         await this.candidateApplicationRepository.saveEntity(entity);
@@ -88,7 +88,7 @@ export class CandidateApplicationService {
         return updated!;
     }
 
-    async deleteApplication(candidateProfileId: number, applicationId: string): Promise<void> {
+    async deleteApplication(candidateProfileId: number, applicationId: number): Promise<void> {
         await this.assertCandidateExists(candidateProfileId);
 
         const entity = await this.candidateApplicationRepository.findRawByIdAndCandidateId(applicationId, candidateProfileId);

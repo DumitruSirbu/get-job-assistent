@@ -3,8 +3,8 @@ import { ApplicationStatus } from './ApplicationStatus';
 
 @Entity({ name: 'candidate_application', synchronize: false })
 export class CandidateApplication {
-    @PrimaryGeneratedColumn('uuid', { name: 'application_id' })
-    applicationId: string;
+    @PrimaryGeneratedColumn({ name: 'application_id' })
+    applicationId: number;
 
     @Column({ name: 'candidate_profile_id', type: 'integer' })
     candidateProfileId: number;

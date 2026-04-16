@@ -1,5 +1,5 @@
 export interface ICandidateApplication {
-    applicationId: string;
+    applicationId: number;
     candidateProfileId: number;
     jobDescriptionId: number;
     appliedAt: Date;

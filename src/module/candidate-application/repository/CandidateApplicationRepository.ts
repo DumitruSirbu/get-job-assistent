@@ -25,7 +25,7 @@ export class CandidateApplicationRepository extends BaseRepository<CandidateAppl
         return rows.map(this.toDto);
     }
 
-    async findByIdAndCandidateId(applicationId: string, candidateProfileId: number): Promise<ICandidateApplication | null> {
+    async findByIdAndCandidateId(applicationId: number, candidateProfileId: number): Promise<ICandidateApplication | null> {
         const row = await this.candidateApplicationRepository
             .createQueryBuilder('app')
             .leftJoinAndSelect('app.applicationStatus', 'status')
@@ -36,7 +36,7 @@ export class CandidateApplicationRepository extends BaseRepository<CandidateAppl
         return row ? this.toDto(row) : null;
     }
 
-    async findRawByIdAndCandidateId(applicationId: string, candidateProfileId: number): Promise<CandidateApplication | null> {
+    async findRawByIdAndCandidateId(applicationId: number, candidateProfileId: number): Promise<CandidateApplication | null> {
         return this.candidateApplicationRepository.findOne({
             where: { applicationId, candidateProfileId },
         });
@@ -46,7 +46,7 @@ export class CandidateApplicationRepository extends BaseRepository<CandidateAppl
         return this.candidateApplicationRepository.save(entity);
     }
 
-    async deleteById(applicationId: string): Promise<void> {
+    async deleteById(applicationId: number): Promise<void> {
         await this.candidateApplicationRepository.delete({ applicationId });
     }
 

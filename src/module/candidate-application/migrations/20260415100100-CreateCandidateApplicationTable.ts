@@ -8,9 +8,10 @@ export class CreateCandidateApplicationTable20260415100100 implements MigrationI
                 columns: [
                     {
                         name: 'application_id',
-                        type: 'uuid',
+                        type: 'integer',
                         isPrimary: true,
-                        default: 'gen_random_uuid()',
+                        isGenerated: true,
+                        generationStrategy: 'increment',
                     },
                     {
                         name: 'candidate_profile_id',

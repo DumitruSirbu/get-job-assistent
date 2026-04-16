@@ -124,7 +124,8 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
                     version,
                 },
             )
-            .limit(4)
+            .orderBy('jobDescription.publishedAt', 'DESC')
+            .limit(50)
             .getMany();
     }
 

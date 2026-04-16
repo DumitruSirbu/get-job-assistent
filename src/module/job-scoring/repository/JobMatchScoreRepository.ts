@@ -24,15 +24,8 @@ export class JobMatchScoreRepository extends BaseRepository<JobMatchScore> {
         return this.jobMatchScoreRepository.find({ where: { jobDescriptionId } });
     }
 
-    async listForCandidate(candidateId: number, dto: ListScoresRequestDto): Promise<IPaginated<JobMatchScore>> {
-        const { page, limit, minScore, locationMatch, search, sort } = dto;
-        console.log('candidateId', candidateId);
-        console.log('page', page);
-        console.log('limit', limit);
-        console.log('minScore', minScore);
-        console.log('locationMatch', locationMatch);
-        console.log('search', search);
-        console.log('sort', sort);
+    async listForCandidate(candidateId: number, requestParams: ListScoresRequestDto): Promise<IPaginated<JobMatchScore>> {
+        const { page, limit, minScore, search, sort, scoredFrom, scoredTo } = requestParams;
 
         const qb = this.jobMatchScoreRepository
             .createQueryBuilder('jobScore')
@@ -53,6 +46,14 @@ export class JobMatchScoreRepository extends BaseRepository<JobMatchScore> {
 
         if (search) {
             qb.andWhere('job.title ILIKE :search', { search: `%${search}%` });
+        }
+
+        if (scoredFrom) {
+            qb.andWhere('jobScore.createdAt >= CAST(:scoredFrom AS date)', { scoredFrom });
+        }
+
+        if (scoredTo) {
+            qb.andWhere("jobScore.createdAt < CAST(:scoredTo AS date) + INTERVAL '1 day'", { scoredTo });
         }
 
         if (sort === 'score:desc') {
