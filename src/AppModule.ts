@@ -14,6 +14,7 @@ import { JobScoringModule } from './module/job-scoring/JobScoringModule';
 import { UserModule } from './module/user/UserModule';
 import { AuthModule } from './module/auth/AuthModule';
 import { JwtAuthGuard } from './module/auth/guard/JwtAuthGuard';
+import { CandidateApplicationModule } from './module/candidate-application/CandidateApplicationModule';
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { JwtAuthGuard } from './module/auth/guard/JwtAuthGuard';
         ApifyModule,
         JobModule,
         CandidateModule,
+        CandidateApplicationModule,
         JobScoringModule,
         UserModule,
         AuthModule,

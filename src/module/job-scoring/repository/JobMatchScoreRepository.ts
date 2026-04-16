@@ -26,6 +26,13 @@ export class JobMatchScoreRepository extends BaseRepository<JobMatchScore> {
 
     async listForCandidate(candidateId: number, dto: ListScoresRequestDto): Promise<IPaginated<JobMatchScore>> {
         const { page, limit, minScore, locationMatch, search, sort } = dto;
+        console.log('candidateId', candidateId);
+        console.log('page', page);
+        console.log('limit', limit);
+        console.log('minScore', minScore);
+        console.log('locationMatch', locationMatch);
+        console.log('search', search);
+        console.log('sort', sort);
 
         const qb = this.jobMatchScoreRepository
             .createQueryBuilder('jobScore')
@@ -43,11 +50,7 @@ export class JobMatchScoreRepository extends BaseRepository<JobMatchScore> {
         if (minScore !== undefined) {
             qb.andWhere('jobScore.score >= :minScore', { minScore });
         }
-        if (locationMatch !== undefined) {
-            qb.andWhere(`"jobScore"."reasons_json"->>'locationMatch' = :locationMatch`, {
-                locationMatch: String(locationMatch),
-            });
-        }
+
         if (search) {
             qb.andWhere('job.title ILIKE :search', { search: `%${search}%` });
         }
