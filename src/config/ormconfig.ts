@@ -11,6 +11,6 @@ export const postgresConnectionConfig: PostgresConnectionOptions = {
     entities: [path.join(sourceRoot, '**/entity/*.{ts,js}')],
     synchronize: false,
     // logging: process.env.NODE_ENV !== 'production',
-    logging: true,
+    logging: false,
     migrationsTableName: 'migrations',
 };

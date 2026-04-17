@@ -13,4 +13,7 @@ export class Company {
 
     @Column({ name: 'company_url', type: 'varchar', nullable: true })
     companyUrl?: string | null;
+
+    @Column({ name: 'is_blacklisted', type: 'boolean', default: false })
+    isBlacklisted: boolean;
 }

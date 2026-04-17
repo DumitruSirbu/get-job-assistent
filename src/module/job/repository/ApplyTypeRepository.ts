@@ -2,8 +2,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
 import { ApplyType } from '../entity/ApplyType';
 import { Repository } from 'typeorm';
-import { BaseRepository } from './BaseRepository';
-import { normalizeStringValue } from '../utils';
+import { BaseRepository } from 'src/common/repository/BaseRepository';
+import { normalizeStringValue } from 'src/common/utils/normalizeStringValue';
 import { IApplyType } from '../interface';
 
 @Injectable()

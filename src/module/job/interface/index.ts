@@ -1,5 +1,4 @@
 export * from './IApplyType';
-export * from './ICompany';
 export * from './IContractType';
 export * from './IExperienceLevel';
 export * from './IJobDescription';

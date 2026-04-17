@@ -1,6 +1,8 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { ExperienceLevel } from 'src/module/job/entity/ExperienceLevel';
 import { Location } from 'src/module/job/entity/Location';
+import { ICandidateProfileLanguage } from '../interface/ICandidateProfileLanguage';
+import { ICandidateProfileSkill } from '../interface/ICandidateProfileSkill';
 
 @Entity({ name: 'candidate_profile', synchronize: false })
 export class CandidateProfile {
@@ -49,7 +51,14 @@ export class CandidateProfile {
      * Example: [{ name: "nestjs", level: "advanced", confidence: 0.95 }, ...]
      */
     @Column({ name: 'skills_json', type: 'jsonb', nullable: true })
-    skillsJson?: object | null;
+    skillsJson?: ICandidateProfileSkill[] | null;
+
+    /**
+     * Spoken/written languages extracted from the CV.
+     * Example: [{ name: "English", level: "fluent" }, { name: "Romanian", level: "native" }]
+     */
+    @Column({ name: 'languages_json', type: 'jsonb', nullable: true })
+    languagesJson?: ICandidateProfileLanguage[] | null;
 
     @Column({ name: 'years_experience', type: 'integer', nullable: true })
     yearsExperience?: number | null;

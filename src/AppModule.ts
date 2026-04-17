@@ -9,6 +9,7 @@ import { ApifyModule } from './module/apify/ApifyModule';
 import { bullmqRootConfig } from './config/bullmqConfig';
 import { postgresConnectionConfig } from './config/ormconfig';
 import { JobModule } from './module/job/JobModule';
+import { CompanyModule } from './module/company/CompanyModule';
 import { CandidateModule } from './module/candidate/CandidateModule';
 import { JobScoringModule } from './module/job-scoring/JobScoringModule';
 import { UserModule } from './module/user/UserModule';
@@ -23,6 +24,7 @@ import { CandidateApplicationModule } from './module/candidate-application/Candi
         BullModule.forRoot(bullmqRootConfig),
         ApifyModule,
         JobModule,
+        CompanyModule,
         CandidateModule,
         CandidateApplicationModule,
         JobScoringModule,

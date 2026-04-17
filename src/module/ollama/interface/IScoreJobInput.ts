@@ -3,6 +3,7 @@ export interface IScoreJobInput {
     jobDescription: string;
     candidateHeadline: string;
     candidateSkills: object;
+    candidateLanguages: object;
     candidateYearsExperience: number;
     candidateExperienceLevel: string;
     candidateOpenToRemote: boolean;

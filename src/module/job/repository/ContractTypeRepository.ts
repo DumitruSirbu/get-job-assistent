@@ -2,9 +2,9 @@ import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ContractType } from '../entity/ContractType';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { IContractType } from '../interface';
-import { normalizeStringValue } from '../utils';
+import { normalizeStringValue } from 'src/common/utils/normalizeStringValue';
 
 @Injectable()
 export class ContractTypeRepository extends BaseRepository<ContractType> {

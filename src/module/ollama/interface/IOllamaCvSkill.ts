@@ -1,5 +1,7 @@
+import { SkillLevelEnum } from 'lib/sdk';
+
 export interface IOllamaCvSkill {
     name: string;
-    level: string;
+    level: SkillLevelEnum;
     confidence: number;
 }

@@ -136,7 +136,42 @@ Represents a job seeker. Key fields:
 
 `CandidateProfileRepository` key methods:
 - `findLatest()` — most recently created profile (used by scoring service)
+- `findById(id)` — single profile lookup (used by application service)
+- `list(dto: PaginationDto)` — paginated list
 - `upsert(item)` — `repository.create()` + `repository.save()` (TypeORM insert-or-update)
+
+## Candidate Application Domain
+
+### Data Flow
+
+```
+HTTP trigger (POST /candidate-profile/:candidateProfileId/applications)
+  → CandidateApplicationService.createApplication(candidateProfileId, dto)
+    → assertCandidateExists() — 404 if profile not found
+    → ApplicationStatusRepository.findByName(statusName ?? 'applied') — 400 if unknown
+    → CandidateApplicationRepository.saveEntity(entity)
+    → CandidateApplicationRepository.findByIdAndCandidateId(...) — return full response
+```
+
+### ApplicationStatus
+
+Lookup table seeded by migration. Valid values: `applied`, `interview`, `offer`, `rejected`, `withdrawn`.
+- Not upserted at runtime — always resolved via `ApplicationStatusRepository.findByName()`
+
+### CandidateApplication
+
+Tracks a job application attempt. Key fields:
+- FK to `candidate_profile` (CASCADE delete), `job_description` (CASCADE delete), `application_status` (RESTRICT)
+- `appliedAt` (timestamp) — defaults to `CURRENT_TIMESTAMP`, overridable via DTO
+- `createdAt`, `updatedAt` — managed by `@BeforeInsert` / `@BeforeUpdate`
+- Unique constraint: `(candidate_profile_id, job_description_id)`
+
+`CandidateApplicationRepository` key methods:
+- `findByCandidateId(candidateProfileId)` — list all applications for a profile (with status join)
+- `findByIdAndCandidateId(applicationId, candidateProfileId)` — single application with status join (returns `ICandidateApplication`)
+- `findRawByIdAndCandidateId(...)` — returns the raw entity (used for update/delete)
+- `saveEntity(entity)` — `repository.save()`
+- `deleteById(applicationId)` — `repository.delete()`
 
 ## Scoring Domain
 
@@ -167,3 +202,9 @@ When adding a new entity to any module:
 4. Create migration in `migrations/` with next timestamp
 5. Create repository extending `BaseRepository` if needed
 6. Add repository to the module's `providers` (and `exports` if consumed by another module)
+
+### Auth conventions
+
+- All endpoints are protected by default via the global `JwtAuthGuard`
+- Mark public endpoints (login, register, refresh) with `@Public()` from `src/module/auth/decorator/Public`
+- Do NOT add `@UseGuards(JwtAuthGuard)` explicitly — it is applied globally via `APP_GUARD`

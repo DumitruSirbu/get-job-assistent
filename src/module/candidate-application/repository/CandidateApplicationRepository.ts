@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
-import { BaseRepository } from 'src/module/job/repository/BaseRepository';
+import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { CandidateApplication } from '../entity/CandidateApplication';
 import { ICandidateApplication } from '../interface/ICandidateApplication';
 

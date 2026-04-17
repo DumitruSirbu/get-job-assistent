@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, BeforeUpdate, BeforeInsert } from 'typeorm';
-import { Company } from './Company';
+import { Company } from 'src/module/company/entity/Company';
 import { ApplyType } from './ApplyType';
 import { ContractType } from './ContractType';
 import { ExperienceLevel } from './ExperienceLevel';

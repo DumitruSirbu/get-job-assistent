@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { IPaginated, paginate } from 'src/common/interface/IPaginated';
 import { ListJobFiltersDto } from '../dto/ListJobFiltersDto';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { JobDescription } from '../entity/JobDescription';
 import { IJobDescription } from '../interface/IJobDescription';
 
@@ -107,10 +107,11 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
     }
 
     async findUnscoredByCandidateAndScorer(candidateProfileId: number, scorerModelId: number, version: string): Promise<JobDescription[]> {
-        return this.jobDescriptionRepository
-            .createQueryBuilder('jobDescription')
-            .where(
-                `NOT EXISTS (
+        return (
+            this.jobDescriptionRepository
+                .createQueryBuilder('jobDescription')
+                .where(
+                    `NOT EXISTS (
                     SELECT 1
                     FROM job_match_score jobMatchScore
                     WHERE jobMatchScore.job_description_id = "jobDescription".job_description_id
@@ -118,15 +119,17 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
                       AND jobMatchScore.scorer_model_id = :scorerModelId
                       AND jobMatchScore.version = :version
                 )`,
-                {
-                    candidateProfileId,
-                    scorerModelId,
-                    version,
-                },
-            )
-            .orderBy('jobDescription.publishedAt', 'DESC')
-            .limit(50)
-            .getMany();
+                    {
+                        candidateProfileId,
+                        scorerModelId,
+                        version,
+                    },
+                )
+                // .andWhere('jobDescription.title ILIKE :title', { title: '%Senior Engineer%' })
+                .orderBy('jobDescription.publishedAt', 'DESC')
+                .limit(50)
+                .getMany()
+        );
     }
 
     async insertNewJobDescriptions(items: IJobDescription[]): Promise<void> {

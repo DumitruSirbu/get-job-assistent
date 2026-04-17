@@ -8,6 +8,8 @@ import { LocationRepository } from 'src/module/job/repository/LocationRepository
 import { ExperienceLevelRepository } from 'src/module/job/repository/ExperienceLevelRepository';
 import { CandidateProfile } from '../entity/CandidateProfile';
 import { CandidateProfileRepository } from '../repository/CandidateProfileRepository';
+import { ICandidateProfileLanguage } from '../interface/ICandidateProfileLanguage';
+import { ICandidateProfileSkill } from '../interface/ICandidateProfileSkill';
 
 @Injectable()
 export class CandidateProfileService {
@@ -27,7 +29,7 @@ export class CandidateProfileService {
 
         const items = candidates.map((candidate) => ({
             ...candidate,
-            skillsCount: Array.isArray(candidate.skillsJson) ? (candidate.skillsJson as unknown[]).length : 0,
+            skillsCount: Array.isArray(candidate.skillsJson) ? candidate.skillsJson.length : 0,
         }));
 
         return paginate(items, total, page, limit);
@@ -71,6 +73,17 @@ export class CandidateProfileService {
             this.logger.warn(`Experience level "${parsed.experienceLevel}" not found in DB — storing without experienceLevelId`);
         }
 
+        const skills: ICandidateProfileSkill[] = parsed.skills.map((s) => ({
+            name: s.name,
+            level: s.level,
+            confidence: s.confidence,
+        }));
+
+        const languages: ICandidateProfileLanguage[] = parsed.languages.map((l) => ({
+            name: l.name,
+            level: l.level,
+        }));
+
         this.logger.log(`Upserting candidate profile for "${parsed.fullName}"`);
 
         return this.candidateProfileRepository.upsert({
@@ -81,7 +94,8 @@ export class CandidateProfileService {
             phone: parsed.phone,
             linkedinUrl: parsed.linkedinUrl,
             yearsExperience: parsed.yearsExperience,
-            skillsJson: parsed.skills,
+            skillsJson: skills,
+            languagesJson: languages,
             version,
             locationId,
             experienceLevelId,

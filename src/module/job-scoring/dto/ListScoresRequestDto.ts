@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
     IsBoolean,
     IsIn,
@@ -13,6 +13,7 @@ import {
     ValidatorConstraintInterface,
     ValidationArguments,
 } from 'class-validator';
+import { ToBoolean } from 'src/common/decorator';
 import { PaginationDto } from 'src/common/dto/PaginationDto';
 
 @ValidatorConstraint({ name: 'scoredFromBeforeScoredTo', async: false })
@@ -37,7 +38,7 @@ export class ListScoresRequestDto extends PaginationDto {
     minScore?: number;
 
     @IsOptional()
-    @Transform(({ value }) => value === 'true')
+    @ToBoolean()
     @IsBoolean()
     locationMatch?: boolean;
 

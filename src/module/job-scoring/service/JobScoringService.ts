@@ -98,6 +98,7 @@ export class JobScoringService {
             jobDescription: job.description,
             candidateHeadline: candidateProfile.headline ?? '',
             candidateSkills: candidateProfile.skillsJson ?? {},
+            candidateLanguages: candidateProfile.languagesJson ?? [],
             candidateYearsExperience: candidateProfile.yearsExperience ?? 0,
             candidateExperienceLevel: candidateProfile.experienceLevel?.experienceLevelName ?? '',
             candidateOpenToRemote: candidateProfile.openToRemote,

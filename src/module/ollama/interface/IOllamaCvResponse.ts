@@ -1,3 +1,4 @@
+import { IOllamaCvLanguage } from './IOllamaCvLanguage';
 import { IOllamaCvSkill } from './IOllamaCvSkill';
 
 export interface IOllamaCvResponse {
@@ -11,4 +12,5 @@ export interface IOllamaCvResponse {
     experienceLevel: string;
     location: string;
     skills: IOllamaCvSkill[];
+    languages: IOllamaCvLanguage[];
 }

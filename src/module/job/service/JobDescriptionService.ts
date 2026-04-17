@@ -11,22 +11,13 @@ import { JobDescriptionRepository } from '../repository/JobDescriptionRepository
 import { LocationRepository } from '../repository/LocationRepository';
 import { SectorRepository } from '../repository/SectorRepository';
 import { SpecialityRepository } from '../repository/SpecialityRepository';
-import { CompanyRepository } from '../repository/CompanyRepository';
+import { CompanyRepository } from 'src/module/company/repository/CompanyRepository';
 import { ApifyLinkedinJobsService } from 'src/module/apify/service/ApifyLinkedinJobsService';
 import { IGetLinkedinJobsParams } from 'src/module/apify/interface/IGetLinkedinJobsParams';
 import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, PublishedAtEnum } from 'src/module/apify/enum';
-import {
-    ICompany,
-    ISector,
-    ILocation,
-    ISpeciality,
-    IContractType,
-    IExperienceLevel,
-    IApplyType,
-    IJobDescription,
-    GeneralJobPropertiesMapingsType,
-} from '../interface';
-import { normalizeStringValue } from '../utils/normalizeStringValue';
+import { ICompany } from 'src/module/company/interface/ICompany';
+import { ISector, ILocation, ISpeciality, IContractType, IExperienceLevel, IApplyType, IJobDescription, GeneralJobPropertiesMapingsType } from '../interface';
+import { normalizeStringValue } from 'src/common/utils/normalizeStringValue';
 import { IJobDescriptionResponse } from 'src/module/apify/interface/IJobDescriptionResponse';
 import jobsList from '../jobsList.json';
 import { LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME } from '../const';
@@ -36,7 +27,19 @@ import type { ILinkedinJobsQueuePayload } from '../interface/ILinkedinJobsQueueP
 export class JobDescriptionService {
     private readonly logger = new Logger(JobDescriptionService.name);
 
-    private readonly locations = ['Moldova', 'Netherlands', 'Denmark', 'France', 'Germany', 'Sweeden', 'Norway', 'Austria', 'Switzerland', 'Luxembourg'];
+    private readonly locations = [
+        'Moldova',
+        'Netherlands',
+        'Denmark',
+        'France',
+        'Germany',
+        'Sweeden',
+        'Norway',
+        'Austria',
+        'Switzerland',
+        'Luxembourg',
+        'Europe',
+    ];
 
     constructor(
         private readonly applyTypeRepository: ApplyTypeRepository,
@@ -94,7 +97,8 @@ export class JobDescriptionService {
             },
             publishedAt: PublishedAtEnum.PAST_WEEK,
             rows: 1000,
-            title: 'Senior Backend Engineer',
+            // title: 'Senior Backend Engineer',
+            title: 'Node.js',
             workType: WorkTypeEnum.REMOTE,
         };
 

@@ -41,6 +41,7 @@ alwaysApply: false
 | Files — utils | camelCase | `normalizeStringValue.ts` |
 | Classes | PascalCase | `JobDescriptionService` |
 | Interfaces | `I` prefix | `IJobDescription`, `ICompany` |
+| Enum declarations | PascalCase + `Enum` suffix | `OllamaCvLanguageLevelEnum` |
 | Type aliases | PascalCase + descriptive | `GeneralJobPropertiesMapingsType` |
 | Constants | UPPER_SNAKE_CASE | `LINKEDIN_JOBS_QUEUE` |
 | Entity properties | camelCase | `jobExternalId` |
@@ -83,9 +84,10 @@ export class MyModule {}
 ### Controllers
 
 - Routes: `@Controller('resource-name')` with kebab-case paths
-- Methods: `@Get` or `@Post` with action-oriented names (not RESTful CRUD)
-- DTOs used only for endpoints that accept a request body; plain classes with typed fields (no class-validator decorators currently)
+- Methods: use standard HTTP verbs (`@Get`, `@Post`, `@Patch`, `@Delete`); route names are action-oriented for trigger endpoints (e.g. `process-cv`) and RESTful for CRUD (e.g. `/:id`)
+- DTOs used for all validated inputs — both `@Body()` and `@Query()`; always annotate with `class-validator` decorators; extend `PaginationDto` for paginated query params
 - `@Post` endpoints that return data (not 201) should use `@HttpCode(HttpStatus.OK)`
+- `@Delete` endpoints returning nothing should use `@HttpCode(HttpStatus.NO_CONTENT)`
 - Example with body:
 
 ```typescript
@@ -93,6 +95,18 @@ export class MyModule {}
 async processCV(@Body() body: ProcessCvDto): Promise<CandidateProfile> {
     return this.service.processCV(body.version);
 }
+```
+
+### Authentication
+
+- Global `JwtAuthGuard` is applied via `APP_GUARD` in `AppModule` — do NOT add `@UseGuards` on individual controllers
+- Mark public routes with `@Public()` (imported from `src/module/auth/decorator/Public`):
+
+```typescript
+@Public()
+@Post('login')
+@HttpCode(HttpStatus.OK)
+async login(@Body() body: LoginDto): Promise<ITokenResponse> { ... }
 ```
 
 ### Services
@@ -132,6 +146,12 @@ When the worker may run long-running operations (e.g., Ollama LLM calls), pass w
 ### Barrel Exports
 
 Each subfolder (`entity/`, `interface/`, `const/`, `utils/`, `controller/`, `service/`, `enum/`) has an `index.ts` that re-exports all public members. Keep it updated when adding new files. Exceptions: `repository/` and `dto/` have no barrel — import each directly.
+
+### Enum Placement
+
+- Place enums in the module `enum/` folder, not in `interface/` files
+- Enum file names must use `Enum` suffix (e.g. `OllamaCvLanguageLevelEnum.ts`)
+- Enum type names must use `Enum` suffix (e.g. `OllamaCvLanguageLevelEnum`)
 
 ## Error Handling
 

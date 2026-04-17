@@ -1,10 +1,10 @@
 import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { Sector } from '../entity/Sector';
 import { ISector } from '../interface';
-import { normalizeStringValue } from '../utils/normalizeStringValue';
+import { normalizeStringValue } from 'src/common/utils/normalizeStringValue';
 
 @Injectable()
 export class SectorRepository extends BaseRepository<Sector> {

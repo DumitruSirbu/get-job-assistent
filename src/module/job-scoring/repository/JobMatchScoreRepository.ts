@@ -2,7 +2,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
 import { IPaginated, paginate } from 'src/common/interface/IPaginated';
-import { BaseRepository } from 'src/module/job/repository/BaseRepository';
+import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
 import { JobMatchScore } from '../entity/JobMatchScore';
 import { IJobMatchScore } from '../interface/IJobMatchScore';

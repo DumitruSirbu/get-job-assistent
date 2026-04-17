@@ -42,16 +42,22 @@ Every entity must be re-exported from its module's `entity/index.ts` and registe
 | `candidate_profile` | CandidateProfile | candidate | `candidate_profile_id` | — |
 | `scorer_model` | ScorerModel | job-scoring | `scorer_model_id` | composite (`scorer_provider`, `scorer_model`) |
 | `job_match_score` | JobMatchScore | job-scoring | `job_match_score_id` | composite (`job_description_id`, `candidate_profile_id`, `scorer_model_id`, `version`) |
+| `users` | User | user | `user_id` | `email` (unique) |
+| `application_status` | ApplicationStatus | candidate-application | `application_status_id` | `status_name` (unique); seeded: `applied`, `interview`, `offer`, `rejected`, `withdrawn` |
+| `candidate_application` | CandidateApplication | candidate-application | `application_id` | composite (`candidate_profile_id`, `job_description_id`) unique |
 
 ### Lookup Tables
 
 `apply_type`, `contract_type`, `experience_level`, `speciality`, `sector`, `location` are simple `{id, name}` dimension tables. They are upserted via `insertManyIgnoreConflicts` (ON CONFLICT DO NOTHING) and queried as `Map<normalizedName, id>` for FK resolution during ETL.
+
+`application_status` is a seeded lookup (values inserted by migration `SeedApplicationStatusValues`); not upserted at runtime.
 
 ### Relationships (FK graph)
 
 - `job_description` → `company`, `apply_type`, `contract_type`, `experience_level`, `speciality`, `sector` (RESTRICT), `location` (SET NULL, nullable)
 - `candidate_profile` → `location` (SET NULL), `experience_level` (RESTRICT) — both optional
 - `job_match_score` → `job_description` (CASCADE), `candidate_profile` (CASCADE), `scorer_model` (RESTRICT)
+- `candidate_application` → `candidate_profile` (CASCADE), `job_description` (CASCADE), `application_status` (RESTRICT)
 
 ## Migration Rules
 
