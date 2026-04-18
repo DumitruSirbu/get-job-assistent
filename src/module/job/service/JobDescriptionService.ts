@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { IPaginated } from 'src/common/interface/IPaginated';
-import { ListJobFiltersDto } from '../dto/ListJobFiltersDto';
+import { ListJobFiltersDto } from 'lib/sdk/dto';
 import { JobDescription } from '../entity/JobDescription';
 import { ApplyTypeRepository } from '../repository/ApplyTypeRepository';
 import { ContractTypeRepository } from '../repository/ContractTypeRepository';
@@ -14,7 +14,7 @@ import { SpecialityRepository } from '../repository/SpecialityRepository';
 import { CompanyRepository } from 'src/module/company/repository/CompanyRepository';
 import { ApifyLinkedinJobsService } from 'src/module/apify/service/ApifyLinkedinJobsService';
 import { IGetLinkedinJobsParams } from 'src/module/apify/interface/IGetLinkedinJobsParams';
-import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, PublishedAtEnum } from 'src/module/apify/enum';
+import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, LocationEnum, PublishedAtEnum } from 'lib/sdk/enum';
 import { ICompany } from 'src/module/company/interface/ICompany';
 import { ISector, ILocation, ISpeciality, IContractType, IExperienceLevel, IApplyType, IJobDescription, GeneralJobPropertiesMapingsType } from '../interface';
 import { normalizeStringValue } from 'src/common/utils/normalizeStringValue';
@@ -22,24 +22,13 @@ import { IJobDescriptionResponse } from 'src/module/apify/interface/IJobDescript
 import jobsList from '../jobsList.json';
 import { LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME } from '../const';
 import type { ILinkedinJobsQueuePayload } from '../interface/ILinkedinJobsQueuePayload';
+import { GetNewJobsParamsDto } from 'lib/sdk/dto';
 
 @Injectable()
 export class JobDescriptionService {
     private readonly logger = new Logger(JobDescriptionService.name);
 
-    private readonly locations = [
-        // 'Moldova',
-        // 'Netherlands',
-        // 'Denmark',
-        // 'France',
-        // 'Germany',
-        // 'Sweeden',
-        // 'Norway',
-        // 'Austria',
-        // 'Switzerland',
-        'Luxembourg',
-        'Europe',
-    ];
+    private readonly defaultLocations = Object.values(LocationEnum);
 
     constructor(
         private readonly applyTypeRepository: ApplyTypeRepository,
@@ -62,7 +51,7 @@ export class JobDescriptionService {
         return this.jobDescriptionRepository.findByIdWithRelations(id);
     }
 
-    async dispatchProcessNewJobs(): Promise<number> {
+    async dispatchProcessNewJobs(dto?: GetNewJobsParamsDto): Promise<number> {
         const jobOptions = {
             attempts: 3,
             backoff: { type: 'exponential' as const, delay: 5000 },
@@ -70,14 +59,17 @@ export class JobDescriptionService {
             removeOnFail: false,
         };
 
+        const locations = dto?.locations ?? this.defaultLocations;
+        const { locations: _, ...params } = dto ?? {};
+
         const jobs = await Promise.all(
-            this.locations.map(async (location) => {
-                const payload: ILinkedinJobsQueuePayload = { location };
+            locations.map(async (location) => {
+                const payload: ILinkedinJobsQueuePayload = { location, ...params };
                 return await this.linkedinJobsQueue.add(LINKEDIN_JOBS_JOB_NAME, payload, jobOptions);
             }),
         );
 
-        this.logger.log(`Dispatched ${jobs.length} location jobs: ${this.locations.join(', ')}`);
+        this.logger.log(`Dispatched ${jobs.length} location jobs: ${locations.join(', ')}`);
         return jobs.length;
     }
 
@@ -85,21 +77,20 @@ export class JobDescriptionService {
         await this.processGetJobsResults(jobsList as IJobDescriptionResponse[]);
     }
 
-    async processJobsByLocation(location: string): Promise<void> {
+    async processJobsByLocation(location: string, params?: Omit<ILinkedinJobsQueuePayload, 'location'>): Promise<void> {
         const fetchJobsParams: IGetLinkedinJobsParams = {
-            contractType: ContractTypeEnum.FULL_TIME,
-            experienceLevel: ExperienceLevelEnum.MID_SENIOR,
+            contractType: params?.contractType ?? ContractTypeEnum.FULL_TIME,
+            experienceLevel: params?.experienceLevel ?? ExperienceLevelEnum.MID_SENIOR,
             location,
             proxy: {
                 useApifyProxy: true,
                 apifyProxyGroups: [],
                 apifyProxyCountry: 'US',
             },
-            publishedAt: PublishedAtEnum.PAST_24_HOURS,
-            rows: 1000,
-            // title: 'Backend Engineer',
-            title: 'Node.js',
-            workType: WorkTypeEnum.REMOTE,
+            publishedAt: params?.publishedAt ?? PublishedAtEnum.PAST_24_HOURS,
+            rows: params?.rows ?? 1000,
+            title: params?.title ?? 'Node.js',
+            workType: params?.workType ?? WorkTypeEnum.REMOTE,
         };
 
         const rawJobsList = await this.apifyLinkedinJobsService.fetchJobs(fetchJobsParams);

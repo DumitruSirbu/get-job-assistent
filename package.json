@@ -23,7 +23,10 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:e2e": "jest --config ./test/jest-e2e.json"
+        "test:e2e": "jest --config ./test/jest-e2e.json",
+        "sdk:build": "cd lib/sdk && npm run build",
+        "sdk:publish:dry": "cd lib/sdk && npm publish --dry-run",
+        "sdk:publish": "cd lib/sdk && npm publish"
     },
     "dependencies": {
         "@nestjs/bullmq": "11.0.4",

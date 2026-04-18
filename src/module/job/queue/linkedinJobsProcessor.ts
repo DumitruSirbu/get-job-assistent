@@ -14,10 +14,10 @@ export class LinkedinJobsProcessor extends WorkerHost {
     }
 
     async process(job: Job<ILinkedinJobsQueuePayload>): Promise<void> {
-        const { location } = job.data;
+        const { location, ...params } = job.data;
         this.logger.log(`Processing location: ${location} (jobId=${job.id})`);
 
-        await this.jobDescriptionService.processJobsByLocation(location);
+        await this.jobDescriptionService.processJobsByLocation(location, params);
     }
 
     @OnWorkerEvent('completed')

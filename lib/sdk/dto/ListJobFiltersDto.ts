@@ -1,7 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString } from 'class-validator';
-import { PaginationDto } from 'src/common/dto/PaginationDto';
-import { toArray } from 'src/common/utils/toArray';
+import { PaginationDto } from './PaginationDto';
+import { toArray } from '../utils/toArray';
 
 export class ListJobFiltersDto extends PaginationDto {
     @IsOptional()

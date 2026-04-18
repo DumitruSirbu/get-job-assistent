@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
-import { PaginationDto } from 'src/common/dto/PaginationDto';
+import { PaginationDto } from 'lib/sdk/dto';
 import { IPaginated, paginate } from 'src/common/interface/IPaginated';
 import { OllamaCvService } from 'src/module/ollama/service/OllamaCvService';
 import { LocationRepository } from 'src/module/job/repository/LocationRepository';

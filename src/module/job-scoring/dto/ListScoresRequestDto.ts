@@ -14,7 +14,7 @@ import {
     ValidationArguments,
 } from 'class-validator';
 import { ToBoolean } from 'src/common/decorator';
-import { PaginationDto } from 'src/common/dto/PaginationDto';
+import { PaginationDto } from 'lib/sdk/dto';
 
 @ValidatorConstraint({ name: 'scoredFromBeforeScoredTo', async: false })
 class ScoredFromBeforeScoredToConstraint implements ValidatorConstraintInterface {

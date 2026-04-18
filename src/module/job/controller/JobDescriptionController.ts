@@ -1,5 +1,6 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { ListJobFiltersDto } from '../dto/ListJobFiltersDto';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { ListJobFiltersDto } from 'lib/sdk/dto';
+import { GetNewJobsParamsDto } from 'lib/sdk/dto';
 import { JobDescriptionService } from '../service/JobDescriptionService';
 
 @Controller('job-description')
@@ -18,8 +19,8 @@ export class JobDescriptionController {
 
     @Post('process-new-jobs')
     @HttpCode(HttpStatus.OK)
-    async processNewJobs(): Promise<{ queued: number }> {
-        const queued = await this.jobDescriptionService.dispatchProcessNewJobs();
+    async processNewJobs(@Body() requestParams: GetNewJobsParamsDto): Promise<{ queued: number }> {
+        const queued = await this.jobDescriptionService.dispatchProcessNewJobs(requestParams);
         return { queued };
     }
 
