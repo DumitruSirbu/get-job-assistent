@@ -3,6 +3,7 @@ import { CandidateProfileRepository } from 'src/module/candidate/repository/Cand
 import { CandidateApplicationRepository } from '../repository/CandidateApplicationRepository';
 import { ApplicationStatusRepository } from '../repository/ApplicationStatusRepository';
 import { CandidateApplication } from '../entity/CandidateApplication';
+import { ApplicationStatus } from '../entity/ApplicationStatus';
 import { CreateCandidateApplicationDto } from '../dto/CreateCandidateApplicationDto';
 import { UpdateCandidateApplicationDto } from '../dto/UpdateCandidateApplicationDto';
 import { ICandidateApplication } from '../interface/ICandidateApplication';
@@ -16,6 +17,11 @@ export class CandidateApplicationService {
         private readonly applicationStatusRepository: ApplicationStatusRepository,
         private readonly candidateProfileRepository: CandidateProfileRepository,
     ) {}
+
+    async listStatuses(): Promise<{ items: ApplicationStatus[] }> {
+        const items = await this.applicationStatusRepository.findAll();
+        return { items };
+    }
 
     async listApplications(candidateProfileId: number): Promise<{ items: ICandidateApplication[] }> {
         await this.assertCandidateExists(candidateProfileId);

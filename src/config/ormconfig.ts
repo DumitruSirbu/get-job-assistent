@@ -1,16 +1,39 @@
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
-import path from 'path';
-
-const projectRoot = path.resolve(__dirname, '..', '..');
-const isCompiled = __filename.endsWith('.js');
-const sourceRoot = isCompiled ? path.join(projectRoot, 'dist') : path.join(projectRoot, 'src');
+import { User } from 'src/module/user/entity/User';
+import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
+import { JobDescription } from 'src/module/job/entity/JobDescription';
+import { ApplyType } from 'src/module/job/entity/ApplyType';
+import { ContractType } from 'src/module/job/entity/ContractType';
+import { ExperienceLevel } from 'src/module/job/entity/ExperienceLevel';
+import { Location } from 'src/module/job/entity/Location';
+import { Sector } from 'src/module/job/entity/Sector';
+import { Speciality } from 'src/module/job/entity/Speciality';
+import { ScorerModel } from 'src/module/job-scoring/entity/ScorerModel';
+import { JobMatchScore } from 'src/module/job-scoring/entity/JobMatchScore';
+import { ApplicationStatus } from 'src/module/candidate-application/entity/ApplicationStatus';
+import { CandidateApplication } from 'src/module/candidate-application/entity/CandidateApplication';
+import { Company } from 'src/module/company/entity/Company';
 
 export const postgresConnectionConfig: PostgresConnectionOptions = {
     type: 'postgres',
     url: process.env.POSTGRES_URL,
-    entities: [path.join(sourceRoot, '**/entity/*.{ts,js}')],
+    entities: [
+        User,
+        CandidateProfile,
+        JobDescription,
+        ApplyType,
+        ContractType,
+        ExperienceLevel,
+        Location,
+        Sector,
+        Speciality,
+        ScorerModel,
+        JobMatchScore,
+        ApplicationStatus,
+        CandidateApplication,
+        Company,
+    ],
     synchronize: false,
-    // logging: process.env.NODE_ENV !== 'production',
     logging: false,
     migrationsTableName: 'migrations',
 };

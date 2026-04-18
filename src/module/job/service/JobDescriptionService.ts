@@ -28,15 +28,15 @@ export class JobDescriptionService {
     private readonly logger = new Logger(JobDescriptionService.name);
 
     private readonly locations = [
-        'Moldova',
-        'Netherlands',
-        'Denmark',
-        'France',
-        'Germany',
-        'Sweeden',
-        'Norway',
-        'Austria',
-        'Switzerland',
+        // 'Moldova',
+        // 'Netherlands',
+        // 'Denmark',
+        // 'France',
+        // 'Germany',
+        // 'Sweeden',
+        // 'Norway',
+        // 'Austria',
+        // 'Switzerland',
         'Luxembourg',
         'Europe',
     ];
@@ -95,9 +95,9 @@ export class JobDescriptionService {
                 apifyProxyGroups: [],
                 apifyProxyCountry: 'US',
             },
-            publishedAt: PublishedAtEnum.PAST_WEEK,
+            publishedAt: PublishedAtEnum.PAST_24_HOURS,
             rows: 1000,
-            // title: 'Senior Backend Engineer',
+            // title: 'Backend Engineer',
             title: 'Node.js',
             workType: WorkTypeEnum.REMOTE,
         };

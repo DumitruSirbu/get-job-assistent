@@ -91,7 +91,8 @@ export class JobScoringService {
             scorerModel: this.ollamaJobScoringService.modelName,
         });
 
-        this.logger.log(`Scoring job: "${job.title}" (id: ${job.jobDescriptionId})`);
+        const remaining = await this.jobScoringQueue.getWaitingCount();
+        this.logger.log(`Scoring job: "${job.title}" (id: ${job.jobDescriptionId}, remaining=${remaining})`);
 
         const result: { score: number; reasons: object } = await this.ollamaJobScoringService.scoreJob({
             jobTitle: job.title,

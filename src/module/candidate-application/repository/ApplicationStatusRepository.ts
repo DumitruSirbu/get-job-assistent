@@ -13,6 +13,10 @@ export class ApplicationStatusRepository extends BaseRepository<ApplicationStatu
         super(applicationStatusRepository);
     }
 
+    async findAll(): Promise<ApplicationStatus[]> {
+        return this.applicationStatusRepository.find();
+    }
+
     async findByName(statusName: string): Promise<ApplicationStatus | null> {
         return this.applicationStatusRepository.findOne({ where: { statusName } });
     }
