@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import { IPaginated } from 'src/common/interface/IPaginated';
-import { ListJobFiltersDto } from 'lib/sdk/dto';
+import { ListJobFiltersDto } from 'lib/sdk/job/dto';
 import { JobDescription } from '../entity/JobDescription';
 import { ApplyTypeRepository } from '../repository/ApplyTypeRepository';
 import { ContractTypeRepository } from '../repository/ContractTypeRepository';
@@ -14,7 +15,7 @@ import { SpecialityRepository } from '../repository/SpecialityRepository';
 import { CompanyRepository } from 'src/module/company/repository/CompanyRepository';
 import { ApifyLinkedinJobsService } from 'src/module/apify/service/ApifyLinkedinJobsService';
 import { IGetLinkedinJobsParams } from 'src/module/apify/interface/IGetLinkedinJobsParams';
-import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, PublishedAtEnum } from 'lib/sdk/enum';
+import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, PublishedAtEnum } from 'lib/sdk/job/enum';
 import { JobRegionRepository } from 'src/module/job-region/repository/JobRegionRepository';
 import { ICompany } from 'src/module/company/interface/ICompany';
 import { ISector, ILocation, ISpeciality, IContractType, IExperienceLevel, IApplyType, IJobDescription, GeneralJobPropertiesMapingsType } from '../interface';
@@ -23,7 +24,16 @@ import { IJobDescriptionResponse } from 'src/module/apify/interface/IJobDescript
 import jobsList from '../jobsList.json';
 import { LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME } from '../const';
 import type { ILinkedinJobsQueuePayload } from '../interface/ILinkedinJobsQueuePayload';
-import { GetNewJobsParamsDto } from 'lib/sdk/dto';
+import { GetNewJobsParamsDto } from 'lib/sdk/job/dto';
+import { JobScrapingGateway } from '../gateway/JobScrapingGateway';
+import { JobScrapingRunSnapshotService } from './JobScrapingRunSnapshotService';
+
+export interface IDispatchProcessNewJobsResult {
+    runId: string;
+    queued: number;
+    totalLocations: number;
+    locations: string[];
+}
 
 @Injectable()
 export class JobDescriptionService {
@@ -40,6 +50,8 @@ export class JobDescriptionService {
         private readonly apifyLinkedinJobsService: ApifyLinkedinJobsService,
         private readonly companyRepository: CompanyRepository,
         private readonly jobRegionRepository: JobRegionRepository,
+        private readonly jobScrapingGateway: JobScrapingGateway,
+        private readonly jobScrapingRunSnapshotService: JobScrapingRunSnapshotService,
         @InjectQueue(LINKEDIN_JOBS_QUEUE) private readonly linkedinJobsQueue: Queue,
     ) {}
 
@@ -51,7 +63,12 @@ export class JobDescriptionService {
         return this.jobDescriptionRepository.findByIdWithRelations(id);
     }
 
-    async dispatchProcessNewJobs(dto?: GetNewJobsParamsDto): Promise<number> {
+    async getJobScrapingRunSnapshot(runId: string) {
+        return this.jobScrapingRunSnapshotService.getSnapshot(runId);
+    }
+
+    async dispatchProcessNewJobs(requestParams: GetNewJobsParamsDto): Promise<IDispatchProcessNewJobsResult> {
+        const { jobRegionIds, ...params } = requestParams;
         const jobOptions = {
             attempts: 3,
             backoff: { type: 'exponential' as const, delay: 5000 },
@@ -59,47 +76,53 @@ export class JobDescriptionService {
             removeOnFail: false,
         };
 
-        const regions =
-            dto?.jobRegionIds?.length
-                ? await this.jobRegionRepository.findByIds(dto.jobRegionIds)
-                : await this.jobRegionRepository.findAll();
+        const regions = requestParams.jobRegionIds.length ? await this.jobRegionRepository.findByIds(jobRegionIds) : await this.jobRegionRepository.findAll();
 
-        const { jobRegionIds: _, ...params } = dto ?? {};
+        const runId = randomUUID();
+        const locations = regions.map((region) => region.name);
+
+        await this.jobScrapingGateway.emitStarted({ runId, totalLocations: locations.length, locations });
 
         const jobs = await Promise.all(
             regions.map(async (region) => {
-                const payload: ILinkedinJobsQueuePayload = { location: region.name, ...params };
+                const payload: ILinkedinJobsQueuePayload = {
+                    runId,
+                    location: region.name,
+                    ...params,
+                };
                 return await this.linkedinJobsQueue.add(LINKEDIN_JOBS_JOB_NAME, payload, jobOptions);
             }),
         );
 
-        this.logger.log(`Dispatched ${jobs.length} location jobs: ${regions.map((r) => r.name).join(', ')}`);
-        return jobs.length;
+        this.logger.log(`Dispatched ${jobs.length} location jobs for run ${runId}: ${locations.join(', ')}`);
+        return { runId, queued: jobs.length, totalLocations: locations.length, locations };
     }
 
     async processFromFile(): Promise<void> {
         await this.processGetJobsResults(jobsList as IJobDescriptionResponse[]);
     }
 
-    async processJobsByLocation(location: string, params?: Omit<ILinkedinJobsQueuePayload, 'location'>): Promise<void> {
+    async processJobsByLocation(location: string, params: Omit<ILinkedinJobsQueuePayload, 'location' | 'runId'>): Promise<number> {
         const fetchJobsParams: IGetLinkedinJobsParams = {
-            contractType: params?.contractType ?? ContractTypeEnum.FULL_TIME,
-            experienceLevel: params?.experienceLevel ?? ExperienceLevelEnum.MID_SENIOR,
+            contractType: params?.contractType,
+            experienceLevel: params?.experienceLevel,
             location,
             proxy: {
                 useApifyProxy: true,
                 apifyProxyGroups: [],
                 apifyProxyCountry: 'US',
             },
-            publishedAt: params?.publishedAt ?? PublishedAtEnum.PAST_24_HOURS,
+            publishedAt: params?.publishedAt,
+            title: params?.title,
+            workType: params?.workType,
             rows: params?.rows ?? 1000,
-            title: params?.title ?? 'Node.js',
-            workType: params?.workType ?? WorkTypeEnum.REMOTE,
         };
 
         const rawJobsList = await this.apifyLinkedinJobsService.fetchJobs(fetchJobsParams);
 
         await this.processGetJobsResults(rawJobsList);
+
+        return rawJobsList.length;
     }
 
     private async processGetJobsResults(rawJobsList: IJobDescriptionResponse[]): Promise<void> {

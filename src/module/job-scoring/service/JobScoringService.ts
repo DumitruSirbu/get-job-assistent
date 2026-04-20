@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'crypto';
 import { IPaginated, paginate } from 'src/common/interface/IPaginated';
 import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
 import { CandidateProfileRepository } from 'src/module/candidate/repository/CandidateProfileRepository';
@@ -16,6 +17,7 @@ import { IScoreAllJobsResponse } from '../interface/IScoreAllJobsResponse';
 import { JobMatchScoreRepository } from '../repository/JobMatchScoreRepository';
 import { ScorerModelRepository } from '../repository/ScorerModelRepository';
 import { JOB_SCORING_QUEUE, JOB_SCORING_JOB_NAME } from '../const';
+import { JobScoringGateway } from '../gateway/JobScoringGateway';
 
 @Injectable()
 export class JobScoringService {
@@ -28,6 +30,7 @@ export class JobScoringService {
         private readonly jobMatchScoreRepository: JobMatchScoreRepository,
         private readonly scorerModelRepository: ScorerModelRepository,
         @InjectQueue(JOB_SCORING_QUEUE) private readonly jobScoringQueue: Queue<IJobScoringQueuePayload>,
+        private readonly jobScoringGateway: JobScoringGateway,
     ) {}
 
     async listForCandidate(candidateId: number, dto: ListScoresRequestDto): Promise<IPaginated<JobMatchScore>> {
@@ -54,23 +57,28 @@ export class JobScoringService {
 
         if (!jobs.length) {
             this.logger.warn('No pending job descriptions found to score');
-            return { dispatched: 0 };
+            return { dispatched: 0, runId: '' };
         }
 
         this.logger.log(`Dispatching ${jobs.length} scoring events for candidate "${candidateProfile.fullName}" using ${scorerModel.scorerModel}`);
 
+        const runId = randomUUID();
+
+        await this.jobScoringGateway.emitStarted({ runId, totalJobs: jobs.length });
+
         const payload: IJobScoringQueuePayload[] = jobs.map((job) => ({
             jobDescriptionId: job.jobDescriptionId,
             candidateProfileId: candidateProfile.candidateProfileId,
+            runId,
         }));
 
         await this.jobScoringQueue.addBulk(payload.map((data) => ({ name: JOB_SCORING_JOB_NAME, data })));
 
-        this.logger.log(`Dispatched ${payload.length} scoring events`);
-        return { dispatched: payload.length };
+        this.logger.log(`Dispatched ${payload.length} scoring events (runId=${runId})`);
+        return { dispatched: payload.length, runId };
     }
 
-    async processScoreJobEvent(payload: IJobScoringQueuePayload): Promise<void> {
+    async processScoreJobEvent(payload: IJobScoringQueuePayload): Promise<number> {
         const { jobDescriptionId, candidateProfileId } = payload;
 
         const [job, candidateProfile] = await Promise.all([
@@ -121,11 +129,13 @@ export class JobScoringService {
 
             if (isDuplicate) {
                 this.logger.warn(`Score already exists for job ${jobDescriptionId} / candidate ${candidateProfileId}, skipping`);
-                return;
+                return result.score;
             }
 
             throw error;
         }
+
+        return result.score;
     }
 
     async clearQueue(): Promise<{ cleared: boolean }> {

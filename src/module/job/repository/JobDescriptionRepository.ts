@@ -2,7 +2,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { IPaginated, paginate } from 'src/common/interface/IPaginated';
-import { ListJobFiltersDto } from 'lib/sdk/dto';
+import { ListJobFiltersDto } from 'lib/sdk/job/dto';
 import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { JobDescription } from '../entity/JobDescription';
 import { IJobDescription } from '../interface/IJobDescription';

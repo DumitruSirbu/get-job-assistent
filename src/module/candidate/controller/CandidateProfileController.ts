@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { PaginationDto } from 'lib/sdk/dto';
+import { PaginationDto } from '../../../../lib/sdk/job/dto';
 import { CandidateProfileService } from '../service/CandidateProfileService';
 import { CandidateProfile } from '../entity/CandidateProfile';
 import { ProcessCvDto } from '../dto/ProcessCvDto';

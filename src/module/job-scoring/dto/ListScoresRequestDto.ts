@@ -14,13 +14,16 @@ import {
     ValidationArguments,
 } from 'class-validator';
 import { ToBoolean } from 'src/common/decorator';
-import { PaginationDto } from 'lib/sdk/dto';
+import { PaginationDto } from '../../../../lib/sdk/job/dto';
 
 @ValidatorConstraint({ name: 'scoredFromBeforeScoredTo', async: false })
 class ScoredFromBeforeScoredToConstraint implements ValidatorConstraintInterface {
     validate(_value: unknown, args: ValidationArguments): boolean {
         const obj = args.object as ListScoresRequestDto;
-        if (!obj.scoredFrom || !obj.scoredTo) return true;
+        if (!obj.scoredFrom || !obj.scoredTo) {
+            return true;
+        }
+
         return obj.scoredFrom <= obj.scoredTo;
     }
 

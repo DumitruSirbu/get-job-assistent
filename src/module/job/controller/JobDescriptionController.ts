@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { ListJobFiltersDto, GetNewJobsParamsDto } from '../../../../lib/sdk/dto';
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { ListJobFiltersDto, GetNewJobsParamsDto } from '../../../../lib/sdk/job/dto';
 import { JobDescriptionService } from '../service/JobDescriptionService';
 
 @Controller('job-description')
@@ -18,9 +18,18 @@ export class JobDescriptionController {
 
     @Post('process-new-jobs')
     @HttpCode(HttpStatus.OK)
-    async processNewJobs(@Body() requestParams: GetNewJobsParamsDto): Promise<{ queued: number }> {
-        const queued = await this.jobDescriptionService.dispatchProcessNewJobs(requestParams);
-        return { queued };
+    async processNewJobs(@Body() requestParams: GetNewJobsParamsDto) {
+        return this.jobDescriptionService.dispatchProcessNewJobs(requestParams);
+    }
+
+    @Get('runs/:runId')
+    async getRunSnapshot(@Param('runId') runId: string) {
+        const snapshot = await this.jobDescriptionService.getJobScrapingRunSnapshot(runId);
+        if (!snapshot) {
+            throw new NotFoundException(`Run ${runId} not found or expired`);
+        }
+
+        return snapshot;
     }
 
     @Post('process-from-file')

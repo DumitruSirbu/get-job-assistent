@@ -27,12 +27,16 @@ import { SectorRepository } from './repository/SectorRepository';
 import { LocationRepository } from './repository/LocationRepository';
 import { JobDescriptionRepository } from './repository/JobDescriptionRepository';
 import { LinkedinJobsProcessor } from './queue/linkedinJobsProcessor';
+import { JobScrapingGateway } from './gateway/JobScrapingGateway';
+import { JobScrapingRunSnapshotService } from './service/JobScrapingRunSnapshotService';
+import { WsInfraModule } from '../ws/WsInfraModule';
 import { LINKEDIN_JOBS_QUEUE } from './const';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([ApplyType, ContractType, ExperienceLevel, JobDescription, Location, Sector, Speciality]),
         BullModule.registerQueue({ name: LINKEDIN_JOBS_QUEUE }),
+        WsInfraModule,
         ApifyModule,
         CompanyModule,
         JobRegionModule,
@@ -47,6 +51,7 @@ import { LINKEDIN_JOBS_QUEUE } from './const';
         ApplyTypeController,
     ],
     providers: [
+        JobScrapingRunSnapshotService,
         JobDescriptionService,
         ApplyTypeRepository,
         ContractTypeRepository,
@@ -56,6 +61,7 @@ import { LINKEDIN_JOBS_QUEUE } from './const';
         SpecialityRepository,
         LocationRepository,
         LinkedinJobsProcessor,
+        JobScrapingGateway,
     ],
     exports: [
         LocationRepository,
