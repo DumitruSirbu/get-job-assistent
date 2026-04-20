@@ -14,7 +14,8 @@ import { SpecialityRepository } from '../repository/SpecialityRepository';
 import { CompanyRepository } from 'src/module/company/repository/CompanyRepository';
 import { ApifyLinkedinJobsService } from 'src/module/apify/service/ApifyLinkedinJobsService';
 import { IGetLinkedinJobsParams } from 'src/module/apify/interface/IGetLinkedinJobsParams';
-import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, LocationEnum, PublishedAtEnum } from 'lib/sdk/enum';
+import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, PublishedAtEnum } from 'lib/sdk/enum';
+import { JobRegionRepository } from 'src/module/job-region/repository/JobRegionRepository';
 import { ICompany } from 'src/module/company/interface/ICompany';
 import { ISector, ILocation, ISpeciality, IContractType, IExperienceLevel, IApplyType, IJobDescription, GeneralJobPropertiesMapingsType } from '../interface';
 import { normalizeStringValue } from 'src/common/utils/normalizeStringValue';
@@ -28,8 +29,6 @@ import { GetNewJobsParamsDto } from 'lib/sdk/dto';
 export class JobDescriptionService {
     private readonly logger = new Logger(JobDescriptionService.name);
 
-    private readonly defaultLocations = Object.values(LocationEnum);
-
     constructor(
         private readonly applyTypeRepository: ApplyTypeRepository,
         private readonly contractTypeRepository: ContractTypeRepository,
@@ -40,6 +39,7 @@ export class JobDescriptionService {
         private readonly jobDescriptionRepository: JobDescriptionRepository,
         private readonly apifyLinkedinJobsService: ApifyLinkedinJobsService,
         private readonly companyRepository: CompanyRepository,
+        private readonly jobRegionRepository: JobRegionRepository,
         @InjectQueue(LINKEDIN_JOBS_QUEUE) private readonly linkedinJobsQueue: Queue,
     ) {}
 
@@ -59,17 +59,21 @@ export class JobDescriptionService {
             removeOnFail: false,
         };
 
-        const locations = dto?.locations ?? this.defaultLocations;
-        const { locations: _, ...params } = dto ?? {};
+        const regions =
+            dto?.jobRegionIds?.length
+                ? await this.jobRegionRepository.findByIds(dto.jobRegionIds)
+                : await this.jobRegionRepository.findAll();
+
+        const { jobRegionIds: _, ...params } = dto ?? {};
 
         const jobs = await Promise.all(
-            locations.map(async (location) => {
-                const payload: ILinkedinJobsQueuePayload = { location, ...params };
+            regions.map(async (region) => {
+                const payload: ILinkedinJobsQueuePayload = { location: region.name, ...params };
                 return await this.linkedinJobsQueue.add(LINKEDIN_JOBS_JOB_NAME, payload, jobOptions);
             }),
         );
 
-        this.logger.log(`Dispatched ${jobs.length} location jobs: ${locations.join(', ')}`);
+        this.logger.log(`Dispatched ${jobs.length} location jobs: ${regions.map((r) => r.name).join(', ')}`);
         return jobs.length;
     }
 

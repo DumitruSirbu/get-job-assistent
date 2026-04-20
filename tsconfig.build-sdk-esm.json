@@ -1,0 +1,8 @@
+{
+    "extends": "./tsconfig.build-sdk.json",
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "outDir": "lib/sdk/dist/esm"
+    }
+}

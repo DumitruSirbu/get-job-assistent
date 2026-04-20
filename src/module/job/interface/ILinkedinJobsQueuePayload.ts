@@ -1,7 +1,7 @@
-import { ContractTypeEnum, ExperienceLevelEnum, LocationEnum, PublishedAtEnum, WorkTypeEnum } from 'lib/sdk/enum';
+import { ContractTypeEnum, ExperienceLevelEnum, PublishedAtEnum, WorkTypeEnum } from 'lib/sdk/enum';
 
 export interface ILinkedinJobsQueuePayload {
-    location: LocationEnum;
+    location: string;
     title?: string;
     contractType?: ContractTypeEnum;
     experienceLevel?: ExperienceLevelEnum;

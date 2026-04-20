@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.build-sdk.json",
+    "compilerOptions": {
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "target": "ES2018",
+        "lib": ["ES2018"],
+        "outDir": "lib/sdk/dist/cjs"
+    }
+}

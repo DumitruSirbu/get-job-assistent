@@ -16,6 +16,7 @@ import { UserModule } from './module/user/UserModule';
 import { AuthModule } from './module/auth/AuthModule';
 import { JwtAuthGuard } from './module/auth/guard/JwtAuthGuard';
 import { CandidateApplicationModule } from './module/candidate-application/CandidateApplicationModule';
+import { JobRegionModule } from './module/job-region/JobRegionModule';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { CandidateApplicationModule } from './module/candidate-application/Candi
         CandidateModule,
         CandidateApplicationModule,
         JobScoringModule,
+        JobRegionModule,
         UserModule,
         AuthModule,
     ],

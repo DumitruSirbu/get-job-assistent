@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ApifyModule } from '../apify/ApifyModule';
 import { CompanyModule } from '../company/CompanyModule';
+import { JobRegionModule } from '../job-region/JobRegionModule';
 import { ApplyType } from './entity/ApplyType';
 import { ContractType } from './entity/ContractType';
 import { ExperienceLevel } from './entity/ExperienceLevel';
@@ -34,6 +35,7 @@ import { LINKEDIN_JOBS_QUEUE } from './const';
         BullModule.registerQueue({ name: LINKEDIN_JOBS_QUEUE }),
         ApifyModule,
         CompanyModule,
+        JobRegionModule,
     ],
     controllers: [
         JobDescriptionController,

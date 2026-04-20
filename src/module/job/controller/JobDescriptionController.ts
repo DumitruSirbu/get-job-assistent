@@ -1,6 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { ListJobFiltersDto } from 'lib/sdk/dto';
-import { GetNewJobsParamsDto } from 'lib/sdk/dto';
+import { ListJobFiltersDto, GetNewJobsParamsDto } from '../../../../lib/sdk/dto';
 import { JobDescriptionService } from '../service/JobDescriptionService';
 
 @Controller('job-description')

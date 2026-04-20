@@ -6,6 +6,7 @@ import { ApplyType } from 'src/module/job/entity/ApplyType';
 import { ContractType } from 'src/module/job/entity/ContractType';
 import { ExperienceLevel } from 'src/module/job/entity/ExperienceLevel';
 import { Location } from 'src/module/job/entity/Location';
+import { JobRegion } from 'src/module/job-region/entity/JobRegion';
 import { Sector } from 'src/module/job/entity/Sector';
 import { Speciality } from 'src/module/job/entity/Speciality';
 import { ScorerModel } from 'src/module/job-scoring/entity/ScorerModel';
@@ -32,6 +33,7 @@ export const postgresConnectionConfig: PostgresConnectionOptions = {
         ApplicationStatus,
         CandidateApplication,
         Company,
+        JobRegion,
     ],
     synchronize: false,
     logging: false,

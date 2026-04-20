@@ -1,5 +1,5 @@
-import { IsArray, IsEnum, IsNumber, IsString, Max, Min } from 'class-validator';
-import { ContractTypeEnum, ExperienceLevelEnum, LocationEnum, PublishedAtEnum, WorkTypeEnum } from '../enum';
+import { IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ContractTypeEnum, ExperienceLevelEnum, PublishedAtEnum, WorkTypeEnum } from '../enum';
 
 export class GetNewJobsParamsDto {
     @IsString()
@@ -18,9 +18,10 @@ export class GetNewJobsParamsDto {
     workType: WorkTypeEnum;
 
     @IsArray()
-    @IsEnum(LocationEnum, { each: true })
-    locations: LocationEnum[];
+    @IsInt({ each: true })
+    jobRegionIds: number[];
 
+    @IsOptional()
     @IsNumber()
     @Min(1)
     @Max(1000)
