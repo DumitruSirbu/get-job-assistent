@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { JobScoringRunStatusEnum } from '../../../../lib/sdk/ws/enum';
-import type { IJobScoringSnapshotPayload } from '../../../../lib/sdk/ws/interface';
+import type { IJobScoringCounters, IJobScoringItemState, IJobScoringSnapshotPayload } from '../../../../lib/sdk/ws/interface';
 import { WS_REDIS_CLIENT } from '../../ws/WsInfraModule';
 
 const RUNNING_TTL_SECONDS = 86400;
@@ -25,7 +25,7 @@ export class JobScoringRunSnapshotService {
         await this.redis.expire(this.key(runId), RUNNING_TTL_SECONDS);
     }
 
-    async incrementCompleted(runId: string): Promise<{ completedItems: number; failedItems: number; totalJobs: number }> {
+    async incrementCompleted(runId: string): Promise<IJobScoringCounters> {
         const pipe = this.redis.pipeline();
         pipe.hincrby(this.key(runId), 'completedItems', 1);
         pipe.hmget(this.key(runId), 'failedItems', 'totalJobs');
@@ -40,7 +40,7 @@ export class JobScoringRunSnapshotService {
         };
     }
 
-    async incrementFailed(runId: string): Promise<{ completedItems: number; failedItems: number; totalJobs: number }> {
+    async incrementFailed(runId: string): Promise<IJobScoringCounters> {
         const pipe = this.redis.pipeline();
         pipe.hincrby(this.key(runId), 'failedItems', 1);
         pipe.hmget(this.key(runId), 'completedItems', 'totalJobs');
@@ -55,9 +55,16 @@ export class JobScoringRunSnapshotService {
         };
     }
 
+    async addItem(runId: string, item: IJobScoringItemState): Promise<void> {
+        const key = this.itemsKey(runId);
+        await this.redis.rpush(key, JSON.stringify(item));
+        await this.redis.expire(key, RUNNING_TTL_SECONDS);
+    }
+
     async markFinished(runId: string, status: JobScoringRunStatusEnum): Promise<void> {
         await this.redis.hset(this.key(runId), { status, finishedAt: new Date().toISOString() });
         await this.redis.expire(this.key(runId), this.finishedTtl);
+        await this.redis.expire(this.itemsKey(runId), this.finishedTtl);
     }
 
     async tryMarkFinishedOnce(runId: string, status: JobScoringRunStatusEnum): Promise<boolean> {
@@ -71,7 +78,10 @@ export class JobScoringRunSnapshotService {
     }
 
     async getSnapshot(runId: string): Promise<IJobScoringSnapshotPayload | null> {
-        const data = await this.redis.hgetall(this.key(runId));
+        const [data, rawItems] = await Promise.all([
+            this.redis.hgetall(this.key(runId)),
+            this.redis.lrange(this.itemsKey(runId), 0, -1),
+        ]);
         if (!data?.runId) {
             return null;
         }
@@ -84,10 +94,15 @@ export class JobScoringRunSnapshotService {
             failedItems: parseInt(data.failedItems, 10),
             startedAt: data.startedAt,
             finishedAt: data.finishedAt,
+            items: rawItems.map((s) => JSON.parse(s) as IJobScoringItemState),
         };
     }
 
     private key(runId: string): string {
         return `job-scoring:run:${runId}`;
+    }
+
+    private itemsKey(runId: string): string {
+        return `job-scoring:run:${runId}:items`;
     }
 }

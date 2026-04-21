@@ -3,7 +3,9 @@ import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSo
 import { Server } from 'socket.io';
 import type { Socket } from 'socket.io';
 import { JOB_SCORING_NAMESPACE, JobScoringClientEvent, JobScoringServerEvent } from '../../../../lib/sdk/ws/consts';
+import { JobScrapingLocationStatusEnum } from '../../../../lib/sdk/ws/enum/JobScrapingLocationStatusEnum';
 import { JobScoringRunStatusEnum } from '../../../../lib/sdk/ws/enum';
+import type { IJobScoringCounters } from '../../../../lib/sdk/ws/interface/IJobScoringCounters';
 import type {
     IJobScoringFinishedPayload,
     IJobScoringItemCompletedPayload,
@@ -53,7 +55,10 @@ export class JobScoringGateway {
     }
 
     async emitItemCompleted(runId: string, jobDescriptionId: number, score: number): Promise<void> {
-        const counters = await this.snapshotService.incrementCompleted(runId);
+        const [counters] = await Promise.all([
+            this.snapshotService.incrementCompleted(runId),
+            this.snapshotService.addItem(runId, { jobDescriptionId, status: JobScrapingLocationStatusEnum.COMPLETED, score }),
+        ]);
 
         const payload: IJobScoringItemCompletedPayload = {
             runId,
@@ -68,7 +73,10 @@ export class JobScoringGateway {
     }
 
     async emitItemFailed(runId: string, jobDescriptionId: number, error: string): Promise<void> {
-        const counters = await this.snapshotService.incrementFailed(runId);
+        const [counters] = await Promise.all([
+            this.snapshotService.incrementFailed(runId),
+            this.snapshotService.addItem(runId, { jobDescriptionId, status: JobScrapingLocationStatusEnum.FAILED, error }),
+        ]);
 
         const payload: IJobScoringItemFailedPayload = {
             runId,
@@ -83,7 +91,7 @@ export class JobScoringGateway {
         await this.maybeFinish(runId, counters);
     }
 
-    private async maybeFinish(runId: string, counters: { completedItems: number; failedItems: number; totalJobs: number }): Promise<void> {
+    private async maybeFinish(runId: string, counters: IJobScoringCounters): Promise<void> {
         if (counters.completedItems + counters.failedItems < counters.totalJobs) {
             return;
         }

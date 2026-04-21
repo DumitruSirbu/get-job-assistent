@@ -2,13 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
-import { IPaginated, paginate } from 'src/common/interface/IPaginated';
+import { IPaginated } from 'src/common/interface/IPaginated';
 import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
 import { CandidateProfileRepository } from 'src/module/candidate/repository/CandidateProfileRepository';
 import { JobDescription } from 'src/module/job/entity/JobDescription';
 import { JobDescriptionRepository } from 'src/module/job/repository/JobDescriptionRepository';
 import { OllamaJobScoringService } from 'src/module/ollama/service/OllamaJobScoringService';
 import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
+import { ScoreNewestJobsRequestDto } from '../dto/ScoreNewestJobsRequestDto';
 import { JobMatchScore } from '../entity/JobMatchScore';
 import { ScorerModel } from '../entity/ScorerModel';
 import { ScorerProviderEnum, ScorerTypeEnum } from '../enum';
@@ -37,10 +38,10 @@ export class JobScoringService {
         return this.jobMatchScoreRepository.listForCandidate(candidateId, dto);
     }
 
-    async scoreAllJobs(): Promise<IScoreAllJobsResponse> {
-        const candidateProfile: CandidateProfile | null = await this.candidateProfileRepository.findLatest();
+    async scoreNewestJobs(candidateId: number, dto: ScoreNewestJobsRequestDto = {}): Promise<IScoreAllJobsResponse> {
+        const candidateProfile: CandidateProfile | null = await this.candidateProfileRepository.findById(candidateId);
         if (!candidateProfile) {
-            throw new Error('No candidate profile found. Run /candidate-profile/process-cv first.');
+            throw new Error(`Candidate profile ${candidateId} not found.`);
         }
 
         const scorerModel: ScorerModel = await this.scorerModelRepository.findOrCreate({
@@ -53,6 +54,7 @@ export class JobScoringService {
             candidateProfile.candidateProfileId,
             scorerModel.scorerModelId,
             scorerModel.scorerModel,
+            { titleKeyword: dto.titleKeyword, limit: dto.limit },
         );
 
         if (!jobs.length) {

@@ -3,8 +3,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { IPaginated } from 'src/common/interface/IPaginated';
-import { ListJobFiltersDto } from 'lib/sdk/job/dto';
 import { JobDescription } from '../entity/JobDescription';
+import { ListJobFiltersDto, GetNewJobsParamsDto } from '../../../../lib/sdk/job/dto';
 import { ApplyTypeRepository } from '../repository/ApplyTypeRepository';
 import { ContractTypeRepository } from '../repository/ContractTypeRepository';
 import { ExperienceLevelRepository } from '../repository/ExperienceLevelRepository';
@@ -15,7 +15,6 @@ import { SpecialityRepository } from '../repository/SpecialityRepository';
 import { CompanyRepository } from 'src/module/company/repository/CompanyRepository';
 import { ApifyLinkedinJobsService } from 'src/module/apify/service/ApifyLinkedinJobsService';
 import { IGetLinkedinJobsParams } from 'src/module/apify/interface/IGetLinkedinJobsParams';
-import { ContractTypeEnum, WorkTypeEnum, ExperienceLevelEnum, PublishedAtEnum } from 'lib/sdk/job/enum';
 import { JobRegionRepository } from 'src/module/job-region/repository/JobRegionRepository';
 import { ICompany } from 'src/module/company/interface/ICompany';
 import { ISector, ILocation, ISpeciality, IContractType, IExperienceLevel, IApplyType, IJobDescription, GeneralJobPropertiesMapingsType } from '../interface';
@@ -24,7 +23,6 @@ import { IJobDescriptionResponse } from 'src/module/apify/interface/IJobDescript
 import jobsList from '../jobsList.json';
 import { LINKEDIN_JOBS_QUEUE, LINKEDIN_JOBS_JOB_NAME } from '../const';
 import type { ILinkedinJobsQueuePayload } from '../interface/ILinkedinJobsQueuePayload';
-import { GetNewJobsParamsDto } from 'lib/sdk/job/dto';
 import { JobScrapingGateway } from '../gateway/JobScrapingGateway';
 import { JobScrapingRunSnapshotService } from './JobScrapingRunSnapshotService';
 
@@ -104,18 +102,18 @@ export class JobDescriptionService {
 
     async processJobsByLocation(location: string, params: Omit<ILinkedinJobsQueuePayload, 'location' | 'runId'>): Promise<number> {
         const fetchJobsParams: IGetLinkedinJobsParams = {
-            contractType: params?.contractType,
-            experienceLevel: params?.experienceLevel,
+            contractType: params.contractType,
+            experienceLevel: params.experienceLevel,
             location,
             proxy: {
                 useApifyProxy: true,
                 apifyProxyGroups: [],
                 apifyProxyCountry: 'US',
             },
-            publishedAt: params?.publishedAt,
-            title: params?.title,
-            workType: params?.workType,
-            rows: params?.rows ?? 1000,
+            publishedAt: params.publishedAt,
+            title: params.title,
+            workType: params.workType,
+            rows: params.rows ?? 1000,
         };
 
         const rawJobsList = await this.apifyLinkedinJobsService.fetchJobs(fetchJobsParams);

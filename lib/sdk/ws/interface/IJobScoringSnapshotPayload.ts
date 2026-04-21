@@ -1,11 +1,11 @@
 import type { JobScoringRunStatusEnum } from '../enum/JobScoringRunStatusEnum';
+import type { IJobScoringCounters } from './IJobScoringCounters';
+import type { IJobScoringItemState } from './IJobScoringItemState';
 
-export interface IJobScoringSnapshotPayload {
+export interface IJobScoringSnapshotPayload extends IJobScoringCounters {
     runId: string;
     status: JobScoringRunStatusEnum;
-    totalJobs: number;
-    completedItems: number;
-    failedItems: number;
     startedAt: string;
     finishedAt?: string;
+    items: IJobScoringItemState[];
 }

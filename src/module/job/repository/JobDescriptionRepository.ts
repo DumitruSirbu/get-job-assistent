@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { IPaginated, paginate } from 'src/common/interface/IPaginated';
 import { ListJobFiltersDto } from 'lib/sdk/job/dto';
+import { IScoreNewestJobsParams } from 'lib/sdk/job-scoring/interface';
 import { BaseRepository } from 'src/common/repository/BaseRepository';
 import { JobDescription } from '../entity/JobDescription';
 import { IJobDescription } from '../interface/IJobDescription';
@@ -106,8 +107,13 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
         return paginate(items, total, page, limit);
     }
 
-    async findUnscoredByCandidateAndScorer(candidateProfileId: number, scorerModelId: number, version: string): Promise<JobDescription[]> {
-        return this.jobDescriptionRepository
+    async findUnscoredByCandidateAndScorer(
+        candidateProfileId: number,
+        scorerModelId: number,
+        version: string,
+        params: IScoreNewestJobsParams = {},
+    ): Promise<JobDescription[]> {
+        const qb = this.jobDescriptionRepository
             .createQueryBuilder('jobDescription')
             .where(
                 `NOT EXISTS (
@@ -118,16 +124,16 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
                       AND jobMatchScore.scorer_model_id = :scorerModelId
                       AND jobMatchScore.version = :version
                 )`,
-                {
-                    candidateProfileId,
-                    scorerModelId,
-                    version,
-                },
+                { candidateProfileId, scorerModelId, version },
             )
-            .andWhere('jobDescription.title ILIKE :title', { title: '%Node%' })
             .orderBy('jobDescription.publishedAt', 'DESC')
-            .limit(300)
-            .getMany();
+            .limit(params.limit ?? 300);
+
+        if (params.titleKeyword) {
+            qb.andWhere('jobDescription.title ILIKE :titleKeyword', { titleKeyword: `%${params.titleKeyword}%` });
+        }
+
+        return qb.getMany();
     }
 
     async insertNewJobDescriptions(items: IJobDescription[]): Promise<void> {

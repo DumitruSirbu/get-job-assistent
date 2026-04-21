@@ -1,5 +1,6 @@
-import { Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
+import { ScoreNewestJobsRequestDto } from '../dto/ScoreNewestJobsRequestDto';
 import { IScoreAllJobsResponse } from '../interface';
 import { JobScoringService } from '../service/JobScoringService';
 import { JobScoringRunSnapshotService } from '../service/JobScoringRunSnapshotService';
@@ -16,10 +17,13 @@ export class JobScoringController {
         return this.jobScoringService.listForCandidate(candidateId, dto);
     }
 
-    @Post('score-all')
+    @Post('score-newest-jobs/:candidateId')
     @HttpCode(HttpStatus.OK)
-    async scoreAll(): Promise<IScoreAllJobsResponse> {
-        return this.jobScoringService.scoreAllJobs();
+    async scoreNewestJobs(
+        @Param('candidateId', ParseIntPipe) candidateId: number,
+        @Body() requestParams: ScoreNewestJobsRequestDto,
+    ): Promise<IScoreAllJobsResponse> {
+        return this.jobScoringService.scoreNewestJobs(candidateId, requestParams);
     }
 
     @Get('scoring-run/:runId/snapshot')
