@@ -116,9 +116,15 @@ export class JobDescriptionService {
             rows: params.rows ?? 1000,
         };
 
+        const fetchStartedAt = Date.now();
         const rawJobsList = await this.apifyLinkedinJobsService.fetchJobs(fetchJobsParams);
+        const fetchElapsedMs = Date.now() - fetchStartedAt;
+        this.logger.log(`Apify fetch for ${location}: ${rawJobsList.length} items in ${fetchElapsedMs}ms`);
 
+        const etlStartedAt = Date.now();
         await this.processGetJobsResults(rawJobsList);
+        const etlElapsedMs = Date.now() - etlStartedAt;
+        this.logger.log(`ETL for ${location}: ${rawJobsList.length} items in ${etlElapsedMs}ms`);
 
         return rawJobsList.length;
     }

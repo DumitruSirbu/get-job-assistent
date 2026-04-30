@@ -1,6 +1,7 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
     IsBoolean,
+    IsEnum,
     IsIn,
     IsInt,
     IsOptional,
@@ -13,8 +14,10 @@ import {
     ValidatorConstraintInterface,
     ValidationArguments,
 } from 'class-validator';
+import { toArray } from '../../../../lib/sdk/job/utils/toArray';
 import { ToBoolean } from 'src/common/decorator';
 import { PaginationDto } from '../../../../lib/sdk/job/dto';
+import { JobScoreVisibilityEnum } from '../../../../lib/sdk/job-scoring/enum/JobScoreVisibilityEnum';
 
 @ValidatorConstraint({ name: 'scoredFromBeforeScoredTo', async: false })
 class ScoredFromBeforeScoredToConstraint implements ValidatorConstraintInterface {
@@ -61,4 +64,25 @@ export class ListScoresRequestDto extends PaginationDto {
     @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'scoredTo must be YYYY-MM-DD' })
     @Validate(ScoredFromBeforeScoredToConstraint)
     scoredTo?: string;
+
+    @IsOptional()
+    @Transform(toArray)
+    @Type(() => Number)
+    @IsInt({ each: true })
+    applicationStatusId?: number[];
+
+    @IsOptional()
+    @ToBoolean()
+    @IsBoolean()
+    noApplication?: boolean;
+
+    @IsOptional()
+    @Transform(toArray)
+    @Type(() => Number)
+    @IsInt({ each: true })
+    companyId?: number[];
+
+    @IsOptional()
+    @IsEnum(JobScoreVisibilityEnum)
+    visibility?: JobScoreVisibilityEnum;
 }

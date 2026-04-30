@@ -48,6 +48,9 @@ export class JobMatchScore {
     @Column({ name: 'metadata_json', type: 'jsonb', nullable: true })
     metadataJson?: object | null;
 
+    @Column({ name: 'hidden', type: 'boolean', default: false })
+    hidden: boolean;
+
     @Column({ name: 'created_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
 

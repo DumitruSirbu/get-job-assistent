@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
 import { ScoreNewestJobsRequestDto } from '../dto/ScoreNewestJobsRequestDto';
+import { ToggleJobScoreVisibilityDto } from '../dto/ToggleJobScoreVisibilityDto';
 import { IScoreAllJobsResponse } from '../interface';
 import { JobScoringService } from '../service/JobScoringService';
 import { JobScoringRunSnapshotService } from '../service/JobScoringRunSnapshotService';
@@ -33,6 +34,11 @@ export class JobScoringController {
             throw new NotFoundException(`Scoring run ${runId} not found or expired`);
         }
         return snapshot;
+    }
+
+    @Patch('scores/:id/visibility')
+    async toggleVisibility(@Param('id', ParseIntPipe) id: number, @Body() dto: ToggleJobScoreVisibilityDto) {
+        return this.jobScoringService.toggleVisibility(id, dto.hidden);
     }
 
     @Post('clear-queue')

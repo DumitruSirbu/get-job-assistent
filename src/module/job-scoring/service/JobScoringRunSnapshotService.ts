@@ -78,10 +78,7 @@ export class JobScoringRunSnapshotService {
     }
 
     async getSnapshot(runId: string): Promise<IJobScoringSnapshotPayload | null> {
-        const [data, rawItems] = await Promise.all([
-            this.redis.hgetall(this.key(runId)),
-            this.redis.lrange(this.itemsKey(runId), 0, -1),
-        ]);
+        const [data, rawItems] = await Promise.all([this.redis.hgetall(this.key(runId)), this.redis.lrange(this.itemsKey(runId), 0, -1)]);
         if (!data?.runId) {
             return null;
         }

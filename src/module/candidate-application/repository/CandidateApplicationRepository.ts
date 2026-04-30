@@ -50,7 +50,7 @@ export class CandidateApplicationRepository extends BaseRepository<CandidateAppl
         await this.candidateApplicationRepository.delete({ applicationId });
     }
 
-    private toDto(row: CandidateApplication): ICandidateApplication {
+    private toDto(this: void, row: CandidateApplication): ICandidateApplication {
         return {
             applicationId: row.applicationId,
             candidateProfileId: row.candidateProfileId,

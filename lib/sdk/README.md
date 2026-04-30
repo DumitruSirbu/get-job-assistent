@@ -27,6 +27,7 @@ npm install class-validator class-transformer reflect-metadata
 | `LocationEnum` | `LUXEMBOURG`, `EUROPE` |
 | `LanguageLevelEnum` | `NATIVE`, `FLUENT`, `CONVERSATIONAL`, `BASIC` |
 | `SkillLevelEnum` | `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `EXPERT` |
+| `JobScoreVisibilityEnum` | `VISIBLE`, `HIDDEN`, `ALL` |
 
 ### DTOs
 
@@ -35,6 +36,16 @@ npm install class-validator class-transformer reflect-metadata
 | `PaginationDto` | Base pagination class with `page` and `limit` fields |
 | `ListJobFiltersDto` | Filters and pagination for querying job listings |
 | `GetNewJobsParamsDto` | Parameters for triggering a new job fetch (title, location, contract type, etc.) |
+
+### Job Scoring Interfaces
+
+| Interface | Description |
+|-----------|-------------|
+| `IScoreNewestJobsParams` | Parameters for scoring a subset of jobs (titleKeyword, limit, publishedFrom, publishedTo) |
+| `IListScoresParams` | Filters for listing job scores (minScore, visibility, companyId, applicationStatusId, etc.) |
+| `IJobScoreRow` | A scored job record (id, jobId, score, hidden, createdAt, updatedAt) |
+| `IToggleJobScoreVisibilityParams` | Request to toggle score visibility (id, hidden) |
+| `IToggleJobScoreVisibilityResponse` | Response from visibility toggle (extends IJobScoreRow) |
 
 ## Usage
 
@@ -45,8 +56,14 @@ import {
   LocationEnum,
   PublishedAtEnum,
   WorkTypeEnum,
+  JobScoreVisibilityEnum,
   GetNewJobsParamsDto,
   ListJobFiltersDto,
+  IScoreNewestJobsParams,
+  IListScoresParams,
+  IJobScoreRow,
+  IToggleJobScoreVisibilityParams,
+  IToggleJobScoreVisibilityResponse,
 } from '@dumitrusirbu/get-job-assistant-sdk';
 ```
 

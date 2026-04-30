@@ -55,10 +55,10 @@ export class JobScoringGateway {
     }
 
     async emitItemCompleted(runId: string, jobDescriptionId: number, score: number): Promise<void> {
-        const [counters] = await Promise.all([
-            this.snapshotService.incrementCompleted(runId),
-            this.snapshotService.addItem(runId, { jobDescriptionId, status: JobScrapingLocationStatusEnum.COMPLETED, score }),
-        ]);
+        // Append the item before bumping the counter so a snapshot fetch can never
+        // observe `completedItems = N` while items[] still has only N-1 entries.
+        await this.snapshotService.addItem(runId, { jobDescriptionId, status: JobScrapingLocationStatusEnum.COMPLETED, score });
+        const counters = await this.snapshotService.incrementCompleted(runId);
 
         const payload: IJobScoringItemCompletedPayload = {
             runId,
@@ -73,10 +73,8 @@ export class JobScoringGateway {
     }
 
     async emitItemFailed(runId: string, jobDescriptionId: number, error: string): Promise<void> {
-        const [counters] = await Promise.all([
-            this.snapshotService.incrementFailed(runId),
-            this.snapshotService.addItem(runId, { jobDescriptionId, status: JobScrapingLocationStatusEnum.FAILED, error }),
-        ]);
+        await this.snapshotService.addItem(runId, { jobDescriptionId, status: JobScrapingLocationStatusEnum.FAILED, error });
+        const counters = await this.snapshotService.incrementFailed(runId);
 
         const payload: IJobScoringItemFailedPayload = {
             runId,

@@ -147,274 +147,22 @@ npm run start:prod
 
 ---
 
-## API endpoints
+## API Endpoints
 
-All endpoints except the authentication routes require a valid JWT `Authorization: Bearer <token>` header.
+All endpoints except authentication require a valid JWT `Authorization: Bearer <token>` header.
 
----
+**Full API reference:** See [docs/api.md](./docs/api.md)
 
-### Authentication
+**WebSocket events:** See [docs/websocket.md](./docs/websocket.md)
 
-All auth endpoints are public (no token required).
-
-#### Register
-
-```
-POST /user/register
-Content-Type: application/json
-```
-
-```json
-{ "email": "you@example.com", "firstName": "Ada", "lastName": "Lovelace", "password": "s3cr3t" }
-```
-
-Returns `{ accessToken, refreshToken }`.
-
-#### Login
-
-```
-POST /user/login
-Content-Type: application/json
-```
-
-```json
-{ "email": "you@example.com", "password": "s3cr3t" }
-```
-
-Returns `{ accessToken, refreshToken }`.
-
-#### Refresh token
-
-```
-POST /user/refresh
-Content-Type: application/json
-```
-
-```json
-{ "refreshToken": "<your_refresh_token>" }
-```
-
-Returns `{ accessToken }` and rotates the stored refresh token.
-
----
-
-### Health check
-
-```
-GET /
-```
-
-Returns `200 OK` when the service is running.
-
----
-
-### Job ingestion
-
-#### List jobs
-
-```
-GET /job-description
-```
-
-Paginated and filterable. Query params:
-
-| Param | Type | Description |
-|---|---|---|
-| `page` | number | Page number (default 1) |
-| `pageSize` | number | Items per page (default 20) |
-| `search` | string | Full-text search on job title / description |
-| `publishedFrom` | string | ISO date — filter jobs published on or after |
-| `publishedTo` | string | ISO date — filter jobs published on or before |
-| `companyId` | number \| number[] | Filter by company id(s) |
-| `locationId` | number \| number[] | Filter by location id(s) |
-| `sectorId` | number \| number[] | Filter by sector id(s) |
-| `specialityId` | number \| number[] | Filter by speciality id(s) |
-| `experienceLevelId` | number \| number[] | Filter by experience level id(s) |
-| `contractTypeId` | number \| number[] | Filter by contract type id(s) |
-| `applyTypeId` | number \| number[] | Filter by apply type id(s) |
-| `sort` | `publishedAt:desc` \| `publishedAt:asc` | Sort order (default `publishedAt:desc`) |
-
-#### Get job by id
-
-```
-GET /job-description/:id
-```
-
-#### Scrape new jobs from LinkedIn via Apify
-
-```
-POST /job-description/process-new-jobs
-```
-
-Response: `{ "queued": 42 }`
-
-#### Load jobs from local file (for development/testing)
-
-```
-POST /job-description/process-from-file
-```
-
-Loads job data from `src/module/job/jobsList.json`. Useful for offline development.
-
----
-
-### Lookup tables
-
-`GET /company` returns a paginated response (`{ items, total, page, limit }`) and supports `search` by name and optional `isBlacklisted` filtering.  
-All other lookup endpoints return `{ items: [{ id, name }] }`.
-
-```
-GET /apply-type
-GET /company?page=1&limit=20&search=google&isBlacklisted=true
-GET /contract-type
-GET /experience-level
-GET /location
-GET /sector
-GET /speciality
-```
-
----
-
-### Candidate profile
-
-#### List profiles
-
-```
-GET /candidate-profile?page=1&pageSize=20
-```
-
-#### Get profile by id
-
-```
-GET /candidate-profile/:id
-```
-
-#### Process CV and build candidate profile
-
-```
-POST /candidate-profile/process-cv
-Content-Type: application/json
-```
-
-| Field | Type | Required | Validation | Description |
-|---|---|---|---|---|
-| `version` | string | Yes | must match `v\d+` (e.g. `"v1"`, `"v2"`) | Maps to `src/cv/cv-{version}.txt` |
-
-```json
-{ "version": "v1" }
-```
-
-Reads the CV file, sends it to Ollama, extracts structured data, resolves FK lookups (location, experience level), and upserts a `candidate_profile` record. **Run this before scoring jobs.**
-
-Example response (truncated):
-```json
-{
-  "candidateProfileId": 1,
-  "fullName": "Dumitru Sirbu",
-  "headline": "Senior Software Engineer · Full-Stack",
-  "openToRemote": true,
-  "yearsExperience": 13,
-  "skillsJson": [
-    { "name": "nestjs", "level": "advanced", "confidence": 0.95 },
-    { "name": "typescript", "level": "advanced", "confidence": 0.95 },
-    { "name": "mongodb", "level": "advanced", "confidence": 0.9 }
-  ]
-}
-```
-
----
-
-### Candidate applications
-
-Track jobs you have applied to, scoped to a candidate profile.
-
-#### List applications
-
-```
-GET /candidate-profile/:candidateProfileId/applications
-```
-
-#### Create application
-
-```
-POST /candidate-profile/:candidateProfileId/applications
-Content-Type: application/json
-```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `jobDescriptionId` | number | Yes | Job to apply for |
-| `statusName` | string | No | Status name (default `applied`); one of `applied`, `interview`, `offer`, `rejected`, `withdrawn` |
-| `appliedAt` | string | No | ISO timestamp — defaults to now |
-
-#### Get application
-
-```
-GET /candidate-profile/:candidateProfileId/applications/:applicationId
-```
-
-#### Update application
-
-```
-PATCH /candidate-profile/:candidateProfileId/applications/:applicationId
-Content-Type: application/json
-```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `statusName` | string | No | New status name |
-| `appliedAt` | string | No | New applied date |
-
-#### Delete application
-
-```
-DELETE /candidate-profile/:candidateProfileId/applications/:applicationId
-```
-
-Returns `204 No Content`.
-
----
-
-### Job scoring
-
-#### List scores for a candidate
-
-```
-GET /job-scoring/candidate/:candidateId
-```
-
-Query params:
-
-| Param | Type | Description |
-|---|---|---|
-| `page` / `pageSize` | number | Pagination |
-| `minScore` | number | Minimum score (0–100) |
-| `locationMatch` | boolean | Filter to location-matched jobs only |
-| `search` | string | Search in job title |
-| `sort` | `score:desc` \| `score:asc` \| `publishedAt:desc` | Sort order (default `score:desc`) |
-| `scoredFrom` | string | Date filter `YYYY-MM-DD` |
-| `scoredTo` | string | Date filter `YYYY-MM-DD` |
-
-#### Score all unscored job descriptions
-
-```
-POST /job-scoring/score-all
-```
-
-Loads the latest candidate profile and scores every job not yet scored by the current model/version. Returns `{ "scored": 17 }`.
-
-Each `job_match_score` record contains:
-- `score` — integer 0–100
-- `reasonsJson` — matched skills, missing skills, seniority fit, location/remote fit, summary sentence
-- `metadataJson` — model name and job title
-
-#### Clear scoring queue
-
-```
-POST /job-scoring/clear-queue
-```
-
-Returns `{ "cleared": true }`.
+Quick reference:
+- Auth: `POST /user/register|login|refresh` (all public)
+- Jobs: `GET /job-description`, `POST /job-description/process-new-jobs`
+- Candidates: `GET /candidate-profile`, `POST /candidate-profile/process-cv`
+- Applications: `GET|POST|PATCH|DELETE /candidate-profile/:candidateProfileId/applications/:applicationId`
+- Scoring: `GET /job-scoring/candidate/:candidateId`, `POST /job-scoring/score-newest-jobs/:candidateId`
+- Companies: `GET /company`, `PATCH /company/:id/blacklist|unblacklist`
+- Lookups: `GET /apply-type`, `GET /contract-type`, etc.
 
 ---
 
@@ -516,62 +264,19 @@ npm run migration:generate -- src/module/job/migrations/MyMigration  # auto-gene
 
 ## Project structure
 
-```
-src/
-├── main.ts
-├── AppModule.ts
-├── common/
-│   ├── dto/PaginationDto.ts     # Shared pagination query params
-│   ├── interface/IPaginated.ts  # Paginated response shape
-│   └── utils/toArray.ts         # class-transformer array coercion helper
-├── config/
-│   ├── ollamaConfig.ts          # Ollama host + model (reads from env)
-│   ├── ormconfig.ts             # Postgres config
-│   ├── bullmqConfig.ts          # Redis/BullMQ config
-│   └── typeormDataSource.ts     # CLI DataSource for migrations
-├── cv/
-│   └── cv-v1.txt                # Your CV (plain text)
-└── module/
-    ├── auth/                    # JWT guard, strategy, @Public() decorator
-    ├── user/                    # Registration, login, refresh token
-    │   ├── entity/              # User (table: users)
-    │   ├── service/             # UserService (bcrypt + JWT)
-    │   ├── controller/          # POST /user/register|login|refresh
-    │   └── migrations/
-    ├── apify/                   # Apify client + LinkedIn scraper service
-    ├── job/                     # Job ingestion: scrape, normalize, persist; lookup endpoints
-    │   ├── entity/
-    │   ├── repository/
-    │   ├── service/
-    │   ├── controller/          # JobDescriptionController + 7 lookup controllers
-    │   ├── dto/                 # ListJobFiltersDto
-    │   ├── queue/               # BullMQ worker
-    │   └── migrations/
-    ├── candidate/               # Candidate profile domain
-    │   ├── entity/
-    │   ├── repository/
-    │   ├── service/             # CV → Ollama → candidate_profile
-    │   ├── controller/
-    │   └── migrations/
-    ├── candidate-application/   # Job application tracking
-    │   ├── entity/              # CandidateApplication, ApplicationStatus
-    │   ├── repository/
-    │   ├── service/
-    │   ├── controller/          # CRUD under /candidate-profile/:id/applications
-    │   └── migrations/
-    ├── job-scoring/             # Job scoring domain
-    │   ├── entity/
-    │   ├── repository/
-    │   ├── service/             # candidate_profile + jobs → Ollama → scores
-    │   ├── controller/
-    │   ├── dto/                 # ListScoresRequestDto
-    │   ├── enum/                # ScorerTypeEnum, ScorerProviderEnum
-    │   └── migrations/
-    └── ollama/                  # Shared Ollama LLM integration
-        ├── OllamaModule.ts
-        ├── service/
-        │   ├── OllamaBaseService.ts         # Abstract: HTTP + JSON parsing
-        │   ├── OllamaCvService.ts           # CV extraction prompt
-        │   └── OllamaJobScoringService.ts   # Job scoring prompt
-        └── interface/
-```
+See [docs/architecture.md](./docs/architecture.md) for full module details and diagrams.
+
+Quick overview:
+- `src/main.ts` — app entry point
+- `src/AppModule.ts` — root module: imports all feature modules, configures TypeORM + BullMQ + JWT
+- `src/common/` — shared DTOs, interfaces, utilities
+- `src/config/` — environment-driven config for Ollama, Postgres, Redis
+- `src/module/` — feature modules:
+  - `auth/` — JWT guard + strategy
+  - `user/` — registration, login, token refresh
+  - `job/` — job scraping + lookup tables
+  - `candidate/` — candidate profile extraction
+  - `candidate-application/` — application tracking
+  - `job-scoring/` — scoring with BullMQ queue + WebSocket gateway
+  - `ollama/` — LLM integration (CV extraction + job scoring)
+  - `apify/` — Apify LinkedIn scraper client

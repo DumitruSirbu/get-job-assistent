@@ -1,11 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import { IPaginated } from 'src/common/interface/IPaginated';
 import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
 import { CandidateProfileRepository } from 'src/module/candidate/repository/CandidateProfileRepository';
-import { JobDescription } from 'src/module/job/entity/JobDescription';
 import { JobDescriptionRepository } from 'src/module/job/repository/JobDescriptionRepository';
 import { OllamaJobScoringService } from 'src/module/ollama/service/OllamaJobScoringService';
 import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
@@ -38,7 +37,7 @@ export class JobScoringService {
         return this.jobMatchScoreRepository.listForCandidate(candidateId, dto);
     }
 
-    async scoreNewestJobs(candidateId: number, dto: ScoreNewestJobsRequestDto = {}): Promise<IScoreAllJobsResponse> {
+    async scoreNewestJobs(candidateId: number, requestParams: ScoreNewestJobsRequestDto = {}): Promise<IScoreAllJobsResponse> {
         const candidateProfile: CandidateProfile | null = await this.candidateProfileRepository.findById(candidateId);
         if (!candidateProfile) {
             throw new Error(`Candidate profile ${candidateId} not found.`);
@@ -50,11 +49,16 @@ export class JobScoringService {
             scorerModel: this.ollamaJobScoringService.modelName,
         });
 
-        const jobs: JobDescription[] = await this.jobDescriptionRepository.findUnscoredByCandidateAndScorer(
+        const jobs = await this.jobDescriptionRepository.findUnscoredByCandidateAndScorer(
             candidateProfile.candidateProfileId,
             scorerModel.scorerModelId,
             scorerModel.scorerModel,
-            { titleKeyword: dto.titleKeyword, limit: dto.limit },
+            {
+                titleKeyword: requestParams.titleKeyword,
+                limit: requestParams.limit,
+                publishedFrom: requestParams.publishedFrom,
+                publishedTo: requestParams.publishedTo,
+            },
         );
 
         if (!jobs.length) {
@@ -138,6 +142,14 @@ export class JobScoringService {
         }
 
         return result.score;
+    }
+
+    async toggleVisibility(id: number, hidden: boolean): Promise<JobMatchScore> {
+        const updated = await this.jobMatchScoreRepository.toggleVisibility(id, hidden);
+        if (!updated) {
+            throw new NotFoundException(`Job match score ${id} not found`);
+        }
+        return updated;
     }
 
     async clearQueue(): Promise<{ cleared: boolean }> {

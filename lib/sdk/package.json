@@ -1,6 +1,6 @@
 {
     "name": "@dumitru_sirbu92/get-job-assistant-sdk",
-    "version": "0.6.2",
+    "version": "0.7.1",
     "description": "Shared enums, DTOs and utilities for get-job-assistant",
     "main": "dist/cjs/index.js",
     "module": "dist/esm/index.js",

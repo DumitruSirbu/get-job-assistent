@@ -72,10 +72,10 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
             qb.andWhere('(job.title ILIKE :search OR job.description ILIKE :search)', { search: `%${search}%` });
         }
         if (publishedFrom) {
-            qb.andWhere('job.publishedAt >= :publishedFrom', { publishedFrom });
+            qb.andWhere('job.publishedAt >= CAST(:publishedFrom AS date)', { publishedFrom });
         }
         if (publishedTo) {
-            qb.andWhere('job.publishedAt <= :publishedTo', { publishedTo });
+            qb.andWhere("job.publishedAt < CAST(:publishedTo AS date) + INTERVAL '1 day'", { publishedTo });
         }
         if (companyId?.length) {
             qb.andWhere('job.companyId IN (:...companyId)', { companyId });
@@ -112,9 +112,11 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
         scorerModelId: number,
         version: string,
         params: IScoreNewestJobsParams = {},
-    ): Promise<JobDescription[]> {
+    ): Promise<Pick<JobDescription, 'jobDescriptionId'>[]> {
         const qb = this.jobDescriptionRepository
             .createQueryBuilder('jobDescription')
+            .select('jobDescription.jobDescriptionId', 'jobDescriptionId')
+            .leftJoin('jobDescription.company', 'company')
             .where(
                 `NOT EXISTS (
                     SELECT 1
@@ -126,14 +128,27 @@ export class JobDescriptionRepository extends BaseRepository<JobDescription> {
                 )`,
                 { candidateProfileId, scorerModelId, version },
             )
+            // Companies blacklisted at scoring time are excluded so we don't waste
+            // paid LLM calls on jobs the user has already opted out of.
+            .andWhere('company.is_blacklisted IS NOT TRUE')
             .orderBy('jobDescription.publishedAt', 'DESC')
             .limit(params.limit ?? 300);
 
         if (params.titleKeyword) {
-            qb.andWhere('jobDescription.title ILIKE :titleKeyword', { titleKeyword: `%${params.titleKeyword}%` });
+            qb.andWhere('jobDescription.title ILIKE :titleKeyword', {
+                titleKeyword: `%${params.titleKeyword}%`,
+            });
         }
 
-        return qb.getMany();
+        if (params.publishedFrom) {
+            qb.andWhere('jobDescription.publishedAt >= CAST(:publishedFrom AS date)', { publishedFrom: params.publishedFrom });
+        }
+
+        if (params.publishedTo) {
+            qb.andWhere("jobDescription.publishedAt < CAST(:publishedTo AS date) + INTERVAL '1 day'", { publishedTo: params.publishedTo });
+        }
+
+        return qb.getRawMany<Pick<JobDescription, 'jobDescriptionId'>>();
     }
 
     async insertNewJobDescriptions(items: IJobDescription[]): Promise<void> {
