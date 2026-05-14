@@ -1,4 +1,4 @@
-export interface IOllamaJobScoreReasons {
+export interface IJobScoreReasons {
     matchedSkills: string[];
     missingSkills: string[];
     seniorityMatch: boolean;

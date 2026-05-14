@@ -3,3 +3,7 @@ export * from './IJobMatchScore';
 export * from './IScorerModel';
 export * from './IJobScoringQueuePayload';
 export * from './IScoreAllJobsResponse';
+export * from './IScoreJobInput';
+export * from './IJobScoreReasons';
+export * from './IJobScoreResponse';
+export * from './IJobScorerService';

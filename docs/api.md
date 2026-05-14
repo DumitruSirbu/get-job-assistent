@@ -356,7 +356,16 @@ Paginated and filterable response:
       "score": 85,
       "reasonsJson": { "matchedSkills": [...], "missingSkills": [...], ... },
       "hidden": false,
-      "createdAt": "2026-04-29T10:00:00Z"
+      "createdAt": "2026-04-29T10:00:00Z",
+      "job": {
+        "jobDescriptionId": 123,
+        "title": "Senior Full Stack Engineer",
+        "company": { "companyId": 1, "companyName": "Acme Corp" },
+        "location": { "locationId": 1, "countryName": "United Kingdom" },
+        "publishedAt": "2026-04-28",
+        "jobUrl": "https://linkedin.com/jobs/...",
+        "applicationsCount": "107 applicants"
+      }
     }
   ],
   "total": 45,

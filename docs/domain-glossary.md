@@ -29,9 +29,10 @@ HTTP trigger (GET /job-description/process-new-jobs)
 
 **Key Entities:**
 
-- `JobDescription` — a scraped LinkedIn job listing
+- `JobDescription` — a scraped LinkedIn job listing (includes fields: title, description, company, location, salary, applicationsCount, contractType, experienceLevel, sector, speciality, applyType, publishedAt, jobUrl, etc.)
 - `Company`, `Location`, `Sector`, `Speciality`, `ContractType`, `ExperienceLevel`, `ApplyType` — lookup dimensions
 - `jobExternalId` — unique string ID from LinkedIn (stored as bigint in DB)
+- `applicationsCount` — string field from LinkedIn (e.g., "107 applicants"); optional; displayed in the dashboard's scored jobs UI
 
 **Deduplication:** In-memory via `Map<jobExternalId, IJobDescription>` before insert; in DB via `ON CONFLICT DO NOTHING` on `jobExternalId`.
 

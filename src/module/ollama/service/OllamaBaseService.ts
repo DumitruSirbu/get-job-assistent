@@ -1,5 +1,37 @@
 import { Logger } from '@nestjs/common';
+import { Agent } from 'undici';
+import { parseJsonFromText } from 'src/common/utils/parseJsonFromText';
 import { IOllamaChatResponse } from '../interface';
+
+export interface IOllamaPrompt {
+    system?: string;
+    user: string;
+    schema?: Record<string, unknown>;
+}
+
+interface IOllamaChatMessage {
+    role: 'system' | 'user';
+    content: string;
+}
+
+// Ollama's default num_ctx is 2048, which truncates JSON output when the
+// system + user prompt occupy most of the window. Bump to 8192 to leave
+// ~1500+ tokens for the model's reply; cap predicted tokens to keep latency
+// bounded.
+const OLLAMA_CONTEXT_TOKENS = 8192;
+const OLLAMA_MAX_OUTPUT_TOKENS = 2048;
+
+// Local LLM inference on a 20B+ model can take minutes per request,
+// especially on cold start with a large context window. Node's undici
+// fetch defaults to 5 min headersTimeout, which trips before the model
+// finishes prefill. Use a dedicated agent with a generous ceiling.
+const OLLAMA_REQUEST_TIMEOUT_MS = 15 * 60 * 1000;
+
+const ollamaAgent = new Agent({
+    headersTimeout: OLLAMA_REQUEST_TIMEOUT_MS,
+    bodyTimeout: OLLAMA_REQUEST_TIMEOUT_MS,
+    connectTimeout: 30 * 1000,
+});
 
 export abstract class OllamaBaseService {
     protected readonly logger: Logger;
@@ -11,10 +43,16 @@ export abstract class OllamaBaseService {
         this.logger = new Logger(this.constructor.name);
     }
 
-    protected async askForJson<T>(prompt: string): Promise<T> {
+    protected async askForJson<T>(prompt: IOllamaPrompt): Promise<T> {
         const url = `${this.host}/api/chat`;
 
         this.logger.log(`Calling Ollama model "${this.model}" at ${url}`);
+
+        const messages: IOllamaChatMessage[] = [];
+        if (prompt.system) {
+            messages.push({ role: 'system', content: prompt.system });
+        }
+        messages.push({ role: 'user', content: prompt.user });
 
         let response: Response;
         try {
@@ -24,8 +62,20 @@ export abstract class OllamaBaseService {
                 body: JSON.stringify({
                     model: this.model,
                     stream: false,
-                    messages: [{ role: 'user', content: prompt }],
+                    format: prompt.schema ?? 'json',
+                    // Gemma 4 and other reasoning models default to "thinking"
+                    // mode, emitting a long internal chain into a separate
+                    // `thinking` field and leaving `content` empty until the
+                    // budget runs out. We want the structured answer directly.
+                    think: false,
+                    messages,
+                    options: {
+                        num_ctx: OLLAMA_CONTEXT_TOKENS,
+                        num_predict: OLLAMA_MAX_OUTPUT_TOKENS,
+                    },
                 }),
+                // @ts-expect-error dispatcher is a Node fetch (undici) extension not in lib.dom
+                dispatcher: ollamaAgent,
             });
         } catch (error) {
             this.logger.error('Failed to reach Ollama - is it running?', error);
@@ -42,20 +92,21 @@ export abstract class OllamaBaseService {
         const data = (await response.json()) as IOllamaChatResponse;
         const rawContent = data.message.content;
 
+        if (data.done_reason === 'length') {
+            const thinkingPreview = data.message.thinking ? ` Thinking preview: ${data.message.thinking.slice(0, 500)}` : '';
+            this.logger.error(
+                `Ollama response hit the num_predict cap (${OLLAMA_MAX_OUTPUT_TOKENS} tokens). Output preview: ${rawContent.slice(0, 1000)}${thinkingPreview}`,
+            );
+            throw new Error(`Ollama output truncated at num_predict=${OLLAMA_MAX_OUTPUT_TOKENS}`);
+        }
+
         this.logger.log('Received response from Ollama, parsing JSON');
 
         try {
-            const json = this.extractJson(rawContent);
-            return JSON.parse(json) as T;
+            return parseJsonFromText<T>(rawContent);
         } catch (error) {
-            this.logger.error('Failed to parse Ollama response as JSON', rawContent);
+            this.logger.error(`Failed to parse Ollama response as JSON. Preview: ${rawContent.slice(0, 200)}`);
             throw error;
         }
-    }
-
-    private extractJson(content: string): string {
-        const trimmed = content.trim();
-        const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        return match ? match[1].trim() : trimmed;
     }
 }

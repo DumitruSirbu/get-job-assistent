@@ -7,6 +7,9 @@ import { CandidateProfile } from 'src/module/candidate/entity/CandidateProfile';
 import { CandidateProfileRepository } from 'src/module/candidate/repository/CandidateProfileRepository';
 import { JobDescriptionRepository } from 'src/module/job/repository/JobDescriptionRepository';
 import { OllamaJobScoringService } from 'src/module/ollama/service/OllamaJobScoringService';
+import { AnthropicJobScoringService } from 'src/module/anthropic/service/AnthropicJobScoringService';
+import { scoringConfig } from 'src/config/scoringConfig';
+import { IJobScorerService } from '../interface/IJobScorerService';
 import { ListScoresRequestDto } from '../dto/ListScoresRequestDto';
 import { ScoreNewestJobsRequestDto } from '../dto/ScoreNewestJobsRequestDto';
 import { JobMatchScore } from '../entity/JobMatchScore';
@@ -19,12 +22,16 @@ import { ScorerModelRepository } from '../repository/ScorerModelRepository';
 import { JOB_SCORING_QUEUE, JOB_SCORING_JOB_NAME } from '../const';
 import { JobScoringGateway } from '../gateway/JobScoringGateway';
 
+const CANDIDATE_CACHE_TTL_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class JobScoringService {
     private readonly logger = new Logger(JobScoringService.name);
+    private readonly candidateCache = new Map<number, { profile: CandidateProfile; expiresAt: number }>();
 
     constructor(
         private readonly ollamaJobScoringService: OllamaJobScoringService,
+        private readonly anthropicJobScoringService: AnthropicJobScoringService,
         private readonly jobDescriptionRepository: JobDescriptionRepository,
         private readonly candidateProfileRepository: CandidateProfileRepository,
         private readonly jobMatchScoreRepository: JobMatchScoreRepository,
@@ -32,6 +39,33 @@ export class JobScoringService {
         @InjectQueue(JOB_SCORING_QUEUE) private readonly jobScoringQueue: Queue<IJobScoringQueuePayload>,
         private readonly jobScoringGateway: JobScoringGateway,
     ) {}
+
+    private getActiveScorer(): { service: IJobScorerService; provider: ScorerProviderEnum } {
+        if (scoringConfig.provider === ScorerProviderEnum.ANTHROPIC) {
+            return { service: this.anthropicJobScoringService, provider: ScorerProviderEnum.ANTHROPIC };
+        }
+        return { service: this.ollamaJobScoringService, provider: ScorerProviderEnum.OLLAMA };
+    }
+
+    private getScorerByProvider(provider: ScorerProviderEnum): IJobScorerService {
+        if (provider === ScorerProviderEnum.ANTHROPIC) {
+            return this.anthropicJobScoringService;
+        }
+        return this.ollamaJobScoringService;
+    }
+
+    private async getCandidateProfile(candidateProfileId: number): Promise<CandidateProfile | null> {
+        const now = Date.now();
+        const cached = this.candidateCache.get(candidateProfileId);
+        if (cached && cached.expiresAt > now) {
+            return cached.profile;
+        }
+        const profile = await this.candidateProfileRepository.findById(candidateProfileId);
+        if (profile) {
+            this.candidateCache.set(candidateProfileId, { profile, expiresAt: now + CANDIDATE_CACHE_TTL_MS });
+        }
+        return profile;
+    }
 
     async listForCandidate(candidateId: number, dto: ListScoresRequestDto): Promise<IPaginated<JobMatchScore>> {
         return this.jobMatchScoreRepository.listForCandidate(candidateId, dto);
@@ -43,10 +77,11 @@ export class JobScoringService {
             throw new Error(`Candidate profile ${candidateId} not found.`);
         }
 
+        const scorer = this.getActiveScorer();
         const scorerModel: ScorerModel = await this.scorerModelRepository.findOrCreate({
             scorerType: ScorerTypeEnum.LLM,
-            scorerProvider: ScorerProviderEnum.OLLAMA,
-            scorerModel: this.ollamaJobScoringService.modelName,
+            scorerProvider: scorer.provider,
+            scorerModel: scorer.service.modelName,
         });
 
         const jobs = await this.jobDescriptionRepository.findUnscoredByCandidateAndScorer(
@@ -75,6 +110,7 @@ export class JobScoringService {
         const payload: IJobScoringQueuePayload[] = jobs.map((job) => ({
             jobDescriptionId: job.jobDescriptionId,
             candidateProfileId: candidateProfile.candidateProfileId,
+            scorerModelId: scorerModel.scorerModelId,
             runId,
         }));
 
@@ -85,11 +121,19 @@ export class JobScoringService {
     }
 
     async processScoreJobEvent(payload: IJobScoringQueuePayload): Promise<number> {
-        const { jobDescriptionId, candidateProfileId } = payload;
+        const { jobDescriptionId, candidateProfileId, scorerModelId } = payload;
+
+        const scorerModel = await this.scorerModelRepository.findById(scorerModelId);
+        if (!scorerModel) {
+            throw new Error(`Scorer model ${scorerModelId} not found`);
+        }
+
+        const provider = scorerModel.scorerProvider as ScorerProviderEnum;
+        const scorerService = this.getScorerByProvider(provider);
 
         const [job, candidateProfile] = await Promise.all([
             this.jobDescriptionRepository.findById(jobDescriptionId),
-            this.candidateProfileRepository.findById(candidateProfileId),
+            this.getCandidateProfile(candidateProfileId),
         ]);
 
         if (!job) {
@@ -99,16 +143,10 @@ export class JobScoringService {
             throw new Error(`Candidate profile ${candidateProfileId} not found`);
         }
 
-        const scorerModel: ScorerModel = await this.scorerModelRepository.findOrCreate({
-            scorerType: ScorerTypeEnum.LLM,
-            scorerProvider: ScorerProviderEnum.OLLAMA,
-            scorerModel: this.ollamaJobScoringService.modelName,
-        });
-
         const remaining = await this.jobScoringQueue.getWaitingCount();
-        this.logger.log(`Scoring job: "${job.title}" (id: ${job.jobDescriptionId}, remaining=${remaining})`);
+        this.logger.log(`Scoring job: "${job.title}" (id: ${job.jobDescriptionId}, remaining=${remaining}, provider=${provider})`);
 
-        const result: { score: number; reasons: object } = await this.ollamaJobScoringService.scoreJob({
+        const result: { score: number; reasons: object } = await scorerService.scoreJob({
             jobTitle: job.title,
             jobDescription: job.description,
             candidateHeadline: candidateProfile.headline ?? '',

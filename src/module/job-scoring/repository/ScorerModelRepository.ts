@@ -28,6 +28,18 @@ export class ScorerModelRepository extends BaseRepository<ScorerModel> {
             return existing;
         }
         const entity = this.scorerModelRepository.create(item);
-        return this.scorerModelRepository.save(entity);
+        try {
+            return await this.scorerModelRepository.save(entity);
+        } catch (error: unknown) {
+            const isDuplicate = error instanceof Error && (error.message.includes('duplicate key') || error.message.includes('unique constraint'));
+            if (!isDuplicate) {
+                throw error;
+            }
+            const raced = await this.findByProviderAndModel(item.scorerProvider, item.scorerModel);
+            if (!raced) {
+                throw error;
+            }
+            return raced;
+        }
     }
 }
